@@ -2,13 +2,15 @@
 
 namespace Box\Spout\Reader\XLSX;
 
-use Box\Spout\Reader\Exception\NoSheetsFoundException;
 use Box\Spout\Reader\IteratorInterface;
-use Box\Spout\Reader\XLSX\Manager\SheetManager;
+use Box\Spout\Reader\XLSX\Helper\SheetHelper;
+use Box\Spout\Reader\Exception\NoSheetsFoundException;
 
 /**
  * Class SheetIterator
  * Iterate over XLSX sheet.
+ *
+ * @package Box\Spout\Reader\XLSX
  */
 class SheetIterator implements IteratorInterface
 {
@@ -19,22 +21,26 @@ class SheetIterator implements IteratorInterface
     protected $currentSheetIndex;
 
     /**
-     * @param SheetManager $sheetManager Manages sheets
+     * @param string $filePath Path of the file to be read
+     * @param \Box\Spout\Reader\XLSX\ReaderOptions $options Reader's current options
+     * @param \Box\Spout\Reader\XLSX\Helper\SharedStringsHelper $sharedStringsHelper
+     * @param \Box\Spout\Common\Helper\GlobalFunctionsHelper $globalFunctionsHelper
      * @throws \Box\Spout\Reader\Exception\NoSheetsFoundException If there are no sheets in the file
      */
-    public function __construct($sheetManager)
+    public function __construct($filePath, $options, $sharedStringsHelper, $globalFunctionsHelper)
     {
         // Fetch all available sheets
-        $this->sheets = $sheetManager->getSheets();
+        $sheetHelper = new SheetHelper($filePath, $options, $sharedStringsHelper, $globalFunctionsHelper);
+        $this->sheets = $sheetHelper->getSheets();
 
-        if (\count($this->sheets) === 0) {
+        if (count($this->sheets) === 0) {
             throw new NoSheetsFoundException('The file must contain at least one sheet.');
         }
     }
 
     /**
      * Rewind the Iterator to the first element
-     * @see http://php.net/manual/en/iterator.rewind.php
+     * @link http://php.net/manual/en/iterator.rewind.php
      *
      * @return void
      */
@@ -45,18 +51,18 @@ class SheetIterator implements IteratorInterface
 
     /**
      * Checks if current position is valid
-     * @see http://php.net/manual/en/iterator.valid.php
+     * @link http://php.net/manual/en/iterator.valid.php
      *
      * @return bool
      */
     public function valid()
     {
-        return ($this->currentSheetIndex < \count($this->sheets));
+        return ($this->currentSheetIndex < count($this->sheets));
     }
 
     /**
      * Move forward to next element
-     * @see http://php.net/manual/en/iterator.next.php
+     * @link http://php.net/manual/en/iterator.next.php
      *
      * @return void
      */
@@ -73,7 +79,7 @@ class SheetIterator implements IteratorInterface
 
     /**
      * Return the current element
-     * @see http://php.net/manual/en/iterator.current.php
+     * @link http://php.net/manual/en/iterator.current.php
      *
      * @return \Box\Spout\Reader\XLSX\Sheet
      */
@@ -84,7 +90,7 @@ class SheetIterator implements IteratorInterface
 
     /**
      * Return the key of the current element
-     * @see http://php.net/manual/en/iterator.key.php
+     * @link http://php.net/manual/en/iterator.key.php
      *
      * @return int
      */

@@ -5,10 +5,12 @@ namespace Box\Spout\Common;
 /**
  * Class Type
  * This class references the supported types
+ *
+ * @api
  */
 abstract class Type
 {
-    public const CSV = 'csv';
-    public const XLSX = 'xlsx';
-    public const ODS = 'ods';
+    const CSV = 'csv';
+    const XLSX = 'xlsx';
+    const ODS = 'ods';
 }

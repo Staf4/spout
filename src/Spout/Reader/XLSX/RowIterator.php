@@ -2,40 +2,38 @@
 
 namespace Box\Spout\Reader\XLSX;
 
-use Box\Spout\Common\Entity\Cell;
-use Box\Spout\Common\Entity\Row;
 use Box\Spout\Common\Exception\IOException;
-use Box\Spout\Reader\Common\Manager\RowManager;
-use Box\Spout\Reader\Common\XMLProcessor;
-use Box\Spout\Reader\Exception\InvalidValueException;
 use Box\Spout\Reader\Exception\XMLProcessingException;
 use Box\Spout\Reader\IteratorInterface;
 use Box\Spout\Reader\Wrapper\XMLReader;
-use Box\Spout\Reader\XLSX\Creator\InternalEntityFactory;
 use Box\Spout\Reader\XLSX\Helper\CellHelper;
 use Box\Spout\Reader\XLSX\Helper\CellValueFormatter;
+use Box\Spout\Reader\XLSX\Helper\StyleHelper;
+use Box\Spout\Reader\Common\XMLProcessor;
 
 /**
  * Class RowIterator
+ *
+ * @package Box\Spout\Reader\XLSX
  */
 class RowIterator implements IteratorInterface
 {
     /** Definition of XML nodes names used to parse data */
-    public const XML_NODE_DIMENSION = 'dimension';
-    public const XML_NODE_WORKSHEET = 'worksheet';
-    public const XML_NODE_ROW = 'row';
-    public const XML_NODE_CELL = 'c';
+    const XML_NODE_DIMENSION = 'dimension';
+    const XML_NODE_WORKSHEET = 'worksheet';
+    const XML_NODE_ROW = 'row';
+    const XML_NODE_CELL = 'c';
 
     /** Definition of XML attributes used to parse data */
-    public const XML_ATTRIBUTE_REF = 'ref';
-    public const XML_ATTRIBUTE_SPANS = 'spans';
-    public const XML_ATTRIBUTE_ROW_INDEX = 'r';
-    public const XML_ATTRIBUTE_CELL_INDEX = 'r';
+    const XML_ATTRIBUTE_REF = 'ref';
+    const XML_ATTRIBUTE_SPANS = 'spans';
+    const XML_ATTRIBUTE_ROW_INDEX = 'r';
+    const XML_ATTRIBUTE_CELL_INDEX = 'r';
 
     /** @var string Path of the XLSX file being read */
     protected $filePath;
 
-    /** @var string Path of the sheet data XML file as in [Content_Types].xml */
+    /** @var string $sheetDataXMLFilePath Path of the sheet data XML file as in [Content_Types].xml */
     protected $sheetDataXMLFilePath;
 
     /** @var \Box\Spout\Reader\Wrapper\XMLReader The XMLReader object that will help read sheet's XML data */
@@ -47,11 +45,8 @@ class RowIterator implements IteratorInterface
     /** @var Helper\CellValueFormatter Helper to format cell values */
     protected $cellValueFormatter;
 
-    /** @var \Box\Spout\Reader\Common\Manager\RowManager Manages rows */
-    protected $rowManager;
-
-    /** @var \Box\Spout\Reader\XLSX\Creator\InternalEntityFactory Factory to create entities */
-    protected $entityFactory;
+    /** @var Helper\StyleHelper $styleHelper Helper to work with styles */
+    protected $styleHelper;
 
     /**
      * TODO: This variable can be deleted when row indices get preserved
@@ -59,11 +54,11 @@ class RowIterator implements IteratorInterface
      */
     protected $numReadRows = 0;
 
-    /** @var Row Contains the row currently processed */
-    protected $currentlyProcessedRow;
+    /** @var array Contains the data for the currently processed row (key = cell index, value = cell value) */
+    protected $currentlyProcessedRowData = [];
 
-    /** @var Row|null Buffer used to store the current row, while checking if there are more rows to read */
-    protected $rowBuffer;
+    /** @var array|null Buffer used to store the row data, while checking if there are more rows to read */
+    protected $rowDataBuffer = null;
 
     /** @var bool Indicates whether all rows have been read */
     protected $hasReachedEndOfFile = false;
@@ -86,33 +81,23 @@ class RowIterator implements IteratorInterface
     /**
      * @param string $filePath Path of the XLSX file being read
      * @param string $sheetDataXMLFilePath Path of the sheet data XML file as in [Content_Types].xml
-     * @param bool $shouldPreserveEmptyRows Whether empty rows should be preserved
-     * @param XMLReader $xmlReader XML Reader
-     * @param XMLProcessor $xmlProcessor Helper to process XML files
-     * @param CellValueFormatter $cellValueFormatter Helper to format cell values
-     * @param RowManager $rowManager Manages rows
-     * @param InternalEntityFactory $entityFactory Factory to create entities
+     * @param \Box\Spout\Reader\XLSX\ReaderOptions $options Reader's current options
+     * @param Helper\SharedStringsHelper $sharedStringsHelper Helper to work with shared strings
      */
-    public function __construct(
-        $filePath,
-        $sheetDataXMLFilePath,
-        $shouldPreserveEmptyRows,
-        $xmlReader,
-        XMLProcessor $xmlProcessor,
-        CellValueFormatter $cellValueFormatter,
-        RowManager $rowManager,
-        InternalEntityFactory $entityFactory
-    ) {
+    public function __construct($filePath, $sheetDataXMLFilePath, $options, $sharedStringsHelper)
+    {
         $this->filePath = $filePath;
         $this->sheetDataXMLFilePath = $this->normalizeSheetDataXMLFilePath($sheetDataXMLFilePath);
-        $this->shouldPreserveEmptyRows = $shouldPreserveEmptyRows;
-        $this->xmlReader = $xmlReader;
-        $this->cellValueFormatter = $cellValueFormatter;
-        $this->rowManager = $rowManager;
-        $this->entityFactory = $entityFactory;
+
+        $this->xmlReader = new XMLReader();
+
+        $this->styleHelper = new StyleHelper($filePath);
+        $this->cellValueFormatter = new CellValueFormatter($sharedStringsHelper, $this->styleHelper, $options->shouldFormatDates());
+
+        $this->shouldPreserveEmptyRows = $options->shouldPreserveEmptyRows();
 
         // Register all callbacks to process different nodes when reading the XML file
-        $this->xmlProcessor = $xmlProcessor;
+        $this->xmlProcessor = new XMLProcessor($this->xmlReader);
         $this->xmlProcessor->registerCallback(self::XML_NODE_DIMENSION, XMLProcessor::NODE_TYPE_START, [$this, 'processDimensionStartingNode']);
         $this->xmlProcessor->registerCallback(self::XML_NODE_ROW, XMLProcessor::NODE_TYPE_START, [$this, 'processRowStartingNode']);
         $this->xmlProcessor->registerCallback(self::XML_NODE_CELL, XMLProcessor::NODE_TYPE_START, [$this, 'processCellStartingNode']);
@@ -127,19 +112,19 @@ class RowIterator implements IteratorInterface
      */
     protected function normalizeSheetDataXMLFilePath($sheetDataXMLFilePath)
     {
-        return \ltrim($sheetDataXMLFilePath, '/');
+        return ltrim($sheetDataXMLFilePath, '/');
     }
 
     /**
      * Rewind the Iterator to the first element.
      * Initializes the XMLReader object that reads the associated sheet data.
      * The XMLReader is configured to be safe from billion laughs attack.
-     * @see http://php.net/manual/en/iterator.rewind.php
+     * @link http://php.net/manual/en/iterator.rewind.php
      *
-     * @throws \Box\Spout\Common\Exception\IOException If the sheet data XML cannot be read
      * @return void
+     * @throws \Box\Spout\Common\Exception\IOException If the sheet data XML cannot be read
      */
-    public function rewind() : void
+    public function rewind()
     {
         $this->xmlReader->close();
 
@@ -150,7 +135,7 @@ class RowIterator implements IteratorInterface
         $this->numReadRows = 0;
         $this->lastRowIndexProcessed = 0;
         $this->nextRowIndexToBeProcessed = 0;
-        $this->rowBuffer = null;
+        $this->rowDataBuffer = null;
         $this->hasReachedEndOfFile = false;
         $this->numColumns = 0;
 
@@ -159,24 +144,24 @@ class RowIterator implements IteratorInterface
 
     /**
      * Checks if current position is valid
-     * @see http://php.net/manual/en/iterator.valid.php
+     * @link http://php.net/manual/en/iterator.valid.php
      *
      * @return bool
      */
-    public function valid() : bool
+    public function valid()
     {
         return (!$this->hasReachedEndOfFile);
     }
 
     /**
      * Move forward to next element. Reads data describing the next unprocessed row.
-     * @see http://php.net/manual/en/iterator.next.php
+     * @link http://php.net/manual/en/iterator.next.php
      *
+     * @return void
      * @throws \Box\Spout\Reader\Exception\SharedStringNotFoundException If a shared string was not found
      * @throws \Box\Spout\Common\Exception\IOException If unable to read the sheet data XML
-     * @return void
      */
-    public function next() : void
+    public function next()
     {
         $this->nextRowIndexToBeProcessed++;
 
@@ -209,13 +194,13 @@ class RowIterator implements IteratorInterface
     }
 
     /**
+     * @return void
      * @throws \Box\Spout\Reader\Exception\SharedStringNotFoundException If a shared string was not found
      * @throws \Box\Spout\Common\Exception\IOException If unable to read the sheet data XML
-     * @return void
      */
     protected function readDataForNextRow()
     {
-        $this->currentlyProcessedRow = $this->entityFactory->createRow();
+        $this->currentlyProcessedRowData = [];
 
         try {
             $this->xmlProcessor->readUntilStopped();
@@ -223,7 +208,7 @@ class RowIterator implements IteratorInterface
             throw new IOException("The {$this->sheetDataXMLFilePath} file cannot be read. [{$exception->getMessage()}]");
         }
 
-        $this->rowBuffer = $this->currentlyProcessedRow;
+        $this->rowDataBuffer = $this->currentlyProcessedRowData;
     }
 
     /**
@@ -234,7 +219,7 @@ class RowIterator implements IteratorInterface
     {
         // Read dimensions of the sheet
         $dimensionRef = $xmlReader->getAttribute(self::XML_ATTRIBUTE_REF); // returns 'A1:M13' for instance (or 'A1' for empty sheet)
-        if (\preg_match('/[A-Z]+\d+:([A-Z]+\d+)/', $dimensionRef, $matches)) {
+        if (preg_match('/[A-Z]+\d+:([A-Z]+\d+)/', $dimensionRef, $matches)) {
             $this->numColumns = CellHelper::getColumnIndexFromCellIndex($matches[1]) + 1;
         }
 
@@ -257,12 +242,11 @@ class RowIterator implements IteratorInterface
         $numberOfColumnsForRow = $this->numColumns;
         $spans = $xmlReader->getAttribute(self::XML_ATTRIBUTE_SPANS); // returns '1:5' for instance
         if ($spans) {
-            list(, $numberOfColumnsForRow) = \explode(':', $spans);
-            $numberOfColumnsForRow = (int) $numberOfColumnsForRow;
+            list(, $numberOfColumnsForRow) = explode(':', $spans);
+            $numberOfColumnsForRow = intval($numberOfColumnsForRow);
         }
 
-        $cells = \array_fill(0, $numberOfColumnsForRow, $this->entityFactory->createCell(''));
-        $this->currentlyProcessedRow->setCells($cells);
+        $this->currentlyProcessedRowData = ($numberOfColumnsForRow !== 0) ? array_fill(0, $numberOfColumnsForRow, '') : [];
 
         return XMLProcessor::PROCESSING_CONTINUE;
     }
@@ -276,11 +260,8 @@ class RowIterator implements IteratorInterface
         $currentColumnIndex = $this->getColumnIndex($xmlReader);
 
         // NOTE: expand() will automatically decode all XML entities of the child nodes
-        /** @var \DOMElement $node */
         $node = $xmlReader->expand();
-        $cell = $this->getCell($node);
-
-        $this->currentlyProcessedRow->setCellAtIndex($cell, $currentColumnIndex);
+        $this->currentlyProcessedRowData[$currentColumnIndex] = $this->getCellValue($node);
         $this->lastColumnIndexProcessed = $currentColumnIndex;
 
         return XMLProcessor::PROCESSING_CONTINUE;
@@ -292,7 +273,7 @@ class RowIterator implements IteratorInterface
     protected function processRowEndingNode()
     {
         // if the fetched row is empty and we don't want to preserve it..,
-        if (!$this->shouldPreserveEmptyRows && $this->rowManager->isEmpty($this->currentlyProcessedRow)) {
+        if (!$this->shouldPreserveEmptyRows && $this->isEmptyRow($this->currentlyProcessedRowData)) {
             // ... skip it
             return XMLProcessor::PROCESSING_CONTINUE;
         }
@@ -301,7 +282,7 @@ class RowIterator implements IteratorInterface
 
         // If needed, we fill the empty cells
         if ($this->numColumns === 0) {
-            $this->currentlyProcessedRow = $this->rowManager->fillMissingIndexesWithEmptyCells($this->currentlyProcessedRow);
+            $this->currentlyProcessedRowData = CellHelper::fillMissingArrayIndexes($this->currentlyProcessedRowData);
         }
 
         // at this point, we have all the data we need for the row
@@ -322,8 +303,8 @@ class RowIterator implements IteratorInterface
 
     /**
      * @param \Box\Spout\Reader\Wrapper\XMLReader $xmlReader XMLReader object, positioned on a "<row>" node
-     * @throws \Box\Spout\Common\Exception\InvalidArgumentException When the given cell index is invalid
      * @return int Row index
+     * @throws \Box\Spout\Common\Exception\InvalidArgumentException When the given cell index is invalid
      */
     protected function getRowIndex($xmlReader)
     {
@@ -331,14 +312,14 @@ class RowIterator implements IteratorInterface
         $currentRowIndex = $xmlReader->getAttribute(self::XML_ATTRIBUTE_ROW_INDEX);
 
         return ($currentRowIndex !== null) ?
-                (int) $currentRowIndex :
+                intval($currentRowIndex) :
                 $this->lastRowIndexProcessed + 1;
     }
 
     /**
      * @param \Box\Spout\Reader\Wrapper\XMLReader $xmlReader XMLReader object, positioned on a "<c>" node
-     * @throws \Box\Spout\Common\Exception\InvalidArgumentException When the given cell index is invalid
      * @return int Column index
+     * @throws \Box\Spout\Common\Exception\InvalidArgumentException When the given cell index is invalid
      */
     protected function getColumnIndex($xmlReader)
     {
@@ -351,33 +332,34 @@ class RowIterator implements IteratorInterface
     }
 
     /**
-     * Returns the cell with (unescaped) correctly marshalled, cell value associated to the given XML node.
+     * Returns the (unescaped) correctly marshalled, cell value associated to the given XML node.
      *
-     * @param \DOMElement $node
-     * @return Cell The cell set with the associated with the cell
+     * @param \DOMNode $node
+     * @return string|int|float|bool|\DateTime|null The value associated with the cell (null when the cell has an error)
      */
-    protected function getCell($node)
+    protected function getCellValue($node)
     {
-        try {
-            $cellValue = $this->cellValueFormatter->extractAndFormatNodeValue($node);
-            $cell = $this->entityFactory->createCell($cellValue);
-        } catch (InvalidValueException $exception) {
-            $cell = $this->entityFactory->createCell($exception->getInvalidValue());
-            $cell->setType(Cell::TYPE_ERROR);
-        }
+        return $this->cellValueFormatter->extractAndFormatNodeValue($node);
+    }
 
-        return $cell;
+    /**
+     * @param array $rowData
+     * @return bool Whether the given row is empty
+     */
+    protected function isEmptyRow($rowData)
+    {
+        return (count($rowData) === 1 && key($rowData) === '');
     }
 
     /**
      * Return the current element, either an empty row or from the buffer.
-     * @see http://php.net/manual/en/iterator.current.php
+     * @link http://php.net/manual/en/iterator.current.php
      *
-     * @return Row|null
+     * @return array|null
      */
-    public function current() : ?Row
+    public function current()
     {
-        $rowToBeProcessed = $this->rowBuffer;
+        $rowDataForRowToBeProcessed = $this->rowDataBuffer;
 
         if ($this->shouldPreserveEmptyRows) {
             // when we need to preserve empty rows, we will either return
@@ -387,20 +369,20 @@ class RowIterator implements IteratorInterface
             if ($this->lastRowIndexProcessed !== $this->nextRowIndexToBeProcessed) {
                 // return empty row if mismatch between last processed row
                 // and the row that needs to be returned
-                $rowToBeProcessed = $this->entityFactory->createRow();
+                $rowDataForRowToBeProcessed = [''];
             }
         }
 
-        return $rowToBeProcessed;
+        return $rowDataForRowToBeProcessed;
     }
 
     /**
      * Return the key of the current element. Here, the row index.
-     * @see http://php.net/manual/en/iterator.key.php
+     * @link http://php.net/manual/en/iterator.key.php
      *
      * @return int
      */
-    public function key() : int
+    public function key()
     {
         // TODO: This should return $this->nextRowIndexToBeProcessed
         //       but to avoid a breaking change, the return value for
@@ -410,12 +392,13 @@ class RowIterator implements IteratorInterface
                 $this->numReadRows;
     }
 
+
     /**
      * Cleans up what was created to iterate over the object.
      *
      * @return void
      */
-    public function end() : void
+    public function end()
     {
         $this->xmlReader->close();
     }

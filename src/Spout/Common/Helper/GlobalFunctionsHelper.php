@@ -7,6 +7,8 @@ namespace Box\Spout\Common\Helper;
  * This class wraps global functions to facilitate testing
  *
  * @codeCoverageIgnore
+ *
+ * @package Box\Spout\Common\Helper
  */
 class GlobalFunctionsHelper
 {
@@ -20,7 +22,7 @@ class GlobalFunctionsHelper
      */
     public function fopen($fileName, $mode)
     {
-        return \fopen($fileName, $mode);
+        return fopen($fileName, $mode);
     }
 
     /**
@@ -28,12 +30,12 @@ class GlobalFunctionsHelper
      * @see fgets()
      *
      * @param resource $handle
-     * @param int|null $length
+     * @param int|void $length
      * @return string
      */
     public function fgets($handle, $length = null)
     {
-        return \fgets($handle, $length);
+        return fgets($handle, $length);
     }
 
     /**
@@ -46,7 +48,7 @@ class GlobalFunctionsHelper
      */
     public function fputs($handle, $string)
     {
-        return \fputs($handle, $string);
+        return fputs($handle, $string);
     }
 
     /**
@@ -58,7 +60,7 @@ class GlobalFunctionsHelper
      */
     public function fflush($handle)
     {
-        return \fflush($handle);
+        return fflush($handle);
     }
 
     /**
@@ -71,7 +73,7 @@ class GlobalFunctionsHelper
      */
     public function fseek($handle, $offset)
     {
-        return \fseek($handle, $offset);
+        return fseek($handle, $offset);
     }
 
     /**
@@ -79,20 +81,14 @@ class GlobalFunctionsHelper
      * @see fgetcsv()
      *
      * @param resource $handle
-     * @param int|null $length
-     * @param string|null $delimiter
-     * @param string|null $enclosure
-     * @return array|false
+     * @param int|void $length
+     * @param string|void $delimiter
+     * @param string|void $enclosure
+     * @return array
      */
     public function fgetcsv($handle, $length = null, $delimiter = null, $enclosure = null)
     {
-        // PHP uses '\' as the default escape character. This is not RFC-4180 compliant...
-        // To fix that, simply disable the escape character.
-        // @see https://bugs.php.net/bug.php?id=43225
-        // @see http://tools.ietf.org/html/rfc4180
-        $escapeCharacter = PHP_VERSION_ID >= 70400 ? '' : "\0";
-
-        return \fgetcsv($handle, $length, $delimiter, $enclosure, $escapeCharacter);
+        return fgetcsv($handle, $length, $delimiter, $enclosure);
     }
 
     /**
@@ -101,19 +97,13 @@ class GlobalFunctionsHelper
      *
      * @param resource $handle
      * @param array $fields
-     * @param string|null $delimiter
-     * @param string|null $enclosure
-     * @return int|false
+     * @param string|void $delimiter
+     * @param string|void $enclosure
+     * @return int
      */
     public function fputcsv($handle, array $fields, $delimiter = null, $enclosure = null)
     {
-        // PHP uses '\' as the default escape character. This is not RFC-4180 compliant...
-        // To fix that, simply disable the escape character.
-        // @see https://bugs.php.net/bug.php?id=43225
-        // @see http://tools.ietf.org/html/rfc4180
-        $escapeCharacter = PHP_VERSION_ID >= 70400 ? '' : "\0";
-
-        return \fputcsv($handle, $fields, $delimiter, $enclosure, $escapeCharacter);
+        return fputcsv($handle, $fields, $delimiter, $enclosure);
     }
 
     /**
@@ -126,7 +116,7 @@ class GlobalFunctionsHelper
      */
     public function fwrite($handle, $string)
     {
-        return \fwrite($handle, $string);
+        return fwrite($handle, $string);
     }
 
     /**
@@ -138,7 +128,7 @@ class GlobalFunctionsHelper
      */
     public function fclose($handle)
     {
-        return \fclose($handle);
+        return fclose($handle);
     }
 
     /**
@@ -150,7 +140,7 @@ class GlobalFunctionsHelper
      */
     public function rewind($handle)
     {
-        return \rewind($handle);
+        return rewind($handle);
     }
 
     /**
@@ -162,7 +152,7 @@ class GlobalFunctionsHelper
      */
     public function file_exists($fileName)
     {
-        return \file_exists($fileName);
+        return file_exists($fileName);
     }
 
     /**
@@ -175,8 +165,7 @@ class GlobalFunctionsHelper
     public function file_get_contents($filePath)
     {
         $realFilePath = $this->convertToUseRealPath($filePath);
-
-        return \file_get_contents($realFilePath);
+        return file_get_contents($realFilePath);
     }
 
     /**
@@ -191,13 +180,13 @@ class GlobalFunctionsHelper
         $realFilePath = $filePath;
 
         if ($this->isZipStream($filePath)) {
-            if (\preg_match('/zip:\/\/(.*)#(.*)/', $filePath, $matches)) {
+            if (preg_match('/zip:\/\/(.*)#(.*)/', $filePath, $matches)) {
                 $documentPath = $matches[1];
                 $documentInsideZipPath = $matches[2];
-                $realFilePath = 'zip://' . \realpath($documentPath) . '#' . $documentInsideZipPath;
+                $realFilePath = 'zip://' . realpath($documentPath) . '#' . $documentInsideZipPath;
             }
         } else {
-            $realFilePath = \realpath($filePath);
+            $realFilePath = realpath($filePath);
         }
 
         return $realFilePath;
@@ -211,19 +200,19 @@ class GlobalFunctionsHelper
      */
     protected function isZipStream($path)
     {
-        return (\strpos($path, 'zip://') === 0);
+        return (strpos($path, 'zip://') === 0);
     }
 
     /**
      * Wrapper around global function feof()
      * @see feof()
      *
-     * @param resource $handle
+     * @param resource
      * @return bool
      */
     public function feof($handle)
     {
-        return \feof($handle);
+        return feof($handle);
     }
 
     /**
@@ -235,7 +224,7 @@ class GlobalFunctionsHelper
      */
     public function is_readable($fileName)
     {
-        return \is_readable($fileName);
+        return is_readable($fileName);
     }
 
     /**
@@ -243,12 +232,12 @@ class GlobalFunctionsHelper
      * @see basename()
      *
      * @param string $path
-     * @param string $suffix
+     * @param string|void $suffix
      * @return string
      */
-    public function basename($path, $suffix = '')
+    public function basename($path, $suffix = null)
     {
-        return \basename($path, $suffix);
+        return basename($path, $suffix);
     }
 
     /**
@@ -260,7 +249,7 @@ class GlobalFunctionsHelper
      */
     public function header($string)
     {
-        \header($string);
+        header($string);
     }
 
     /**
@@ -271,8 +260,8 @@ class GlobalFunctionsHelper
      */
     public function ob_end_clean()
     {
-        if (\ob_get_length() > 0) {
-            \ob_end_clean();
+        if (ob_get_length() > 0) {
+            ob_end_clean();
         }
     }
 
@@ -287,7 +276,7 @@ class GlobalFunctionsHelper
      */
     public function iconv($string, $sourceEncoding, $targetEncoding)
     {
-        return \iconv($sourceEncoding, $targetEncoding, $string);
+        return iconv($sourceEncoding, $targetEncoding, $string);
     }
 
     /**
@@ -301,7 +290,7 @@ class GlobalFunctionsHelper
      */
     public function mb_convert_encoding($string, $sourceEncoding, $targetEncoding)
     {
-        return \mb_convert_encoding($string, $targetEncoding, $sourceEncoding);
+        return mb_convert_encoding($string, $targetEncoding, $sourceEncoding);
     }
 
     /**
@@ -312,7 +301,7 @@ class GlobalFunctionsHelper
      */
     public function stream_get_wrappers()
     {
-        return \stream_get_wrappers();
+        return stream_get_wrappers();
     }
 
     /**
@@ -324,6 +313,6 @@ class GlobalFunctionsHelper
      */
     public function function_exists($functionName)
     {
-        return \function_exists($functionName);
+        return function_exists($functionName);
     }
 }

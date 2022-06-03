@@ -1,36 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
-         bootstrap="tests/bootstrap.php"
-         colors="true"
-         convertErrorsToExceptions="false"
-         convertWarningsToExceptions="false"
-         defaultTestSuite="unit-tests"
-         verbose="false">
+<phpunit
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://schema.phpunit.de/4.3/phpunit.xsd"
+        bootstrap="tests/bootstrap.php"
+        colors="true"
+        convertErrorsToExceptions="false"
+        convertWarningsToExceptions="false"
+        verbose="false">
 
-  <php>
-    <ini name="error_reporting" value="-1"/>
-  </php>
+    <testsuites>
+        <testsuite name="all-tests">
+            <directory>tests/</directory>
+        </testsuite>
+    </testsuites>
 
-  <testsuites>
-    <testsuite name="unit-tests">
-      <directory>tests/</directory>
-    </testsuite>
-  </testsuites>
-
-  <groups>
-    <exclude>
-      <group>perf-tests</group>
-    </exclude>
-  </groups>
-
-  <coverage>
-    <include>
-      <directory suffix=".php">src/</directory>
-    </include>
-    <exclude>
-      <directory>src/Spout/Autoloader</directory>
-    </exclude>
-  </coverage>
+    <filter>
+        <whitelist>
+            <directory suffix=".php">src/</directory>
+            <exclude>
+                <directory>src/Spout/Autoloader</directory>
+            </exclude>
+        </whitelist>
+    </filter>
 
 </phpunit>
