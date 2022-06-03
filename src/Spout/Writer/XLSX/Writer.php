@@ -30,6 +30,8 @@ class Writer extends AbstractMultiSheetsWriter
     /** @var Internal\Workbook The workbook for the XLSX file */
     protected $book;
 
+    protected $additionalSettings = [];
+
     /**
      * Sets a custom temporary folder for creating intermediate files/folders.
      * This must be set before opening the writer.
@@ -74,7 +76,7 @@ class Writer extends AbstractMultiSheetsWriter
     {
         if (!$this->book) {
             $tempFolder = ($this->tempFolder) ? : sys_get_temp_dir();
-            $this->book = new Workbook($tempFolder, $this->shouldUseInlineStrings, $this->shouldCreateNewSheetsAutomatically, $this->defaultRowStyle);
+            $this->book = new Workbook($tempFolder, $this->shouldUseInlineStrings, $this->shouldCreateNewSheetsAutomatically, $this->defaultRowStyle, $this->additionalSettings);
             $this->book->addNewSheetAndMakeItCurrent();
         }
     }
@@ -128,5 +130,10 @@ class Writer extends AbstractMultiSheetsWriter
         if ($this->book) {
             $this->book->close($this->filePointer);
         }
+    }
+
+    public function setAdditionalSettings(array $data)
+    {
+        $this->additionalSettings = $data;
     }
 }
