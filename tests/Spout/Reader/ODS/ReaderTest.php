@@ -3,16 +3,15 @@
 namespace Box\Spout\Reader\ODS;
 
 use Box\Spout\Common\Exception\IOException;
-use Box\Spout\Common\Type;
-use Box\Spout\Reader\ReaderFactory;
+use Box\Spout\Reader\Common\Creator\ReaderEntityFactory;
+use Box\Spout\Reader\Exception\IteratorNotRewindableException;
 use Box\Spout\TestUsingResource;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class ReaderTest
- *
- * @package Box\Spout\Reader\ODS
  */
-class ReaderTest extends \PHPUnit_Framework_TestCase
+class ReaderTest extends TestCase
 {
     use TestUsingResource;
 
@@ -29,13 +28,14 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @dataProvider dataProviderForTestReadShouldThrowException
-     * @expectedException \Box\Spout\Common\Exception\IOException
      *
      * @param string $filePath
      * @return void
      */
     public function testReadShouldThrowException($filePath)
     {
+        $this->expectException(IOException::class);
+
         // using @ to prevent warnings/errors from being displayed
         @$this->getAllRowsForFile($filePath);
     }
@@ -63,9 +63,9 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     {
         $allRows = $this->getAllRowsForFile($resourceName);
 
-        $this->assertEquals($expectedNumOfRows, count($allRows), "There should be $expectedNumOfRows rows");
+        $this->assertCount($expectedNumOfRows, $allRows, "There should be $expectedNumOfRows rows");
         foreach ($allRows as $row) {
-            $this->assertEquals($expectedNumOfCellsPerRow, count($row), "There should be $expectedNumOfCellsPerRow cells for every row");
+            $this->assertCount($expectedNumOfCellsPerRow, $row, "There should be $expectedNumOfCellsPerRow cells for every row");
         }
     }
 
@@ -134,9 +134,9 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = $this->getAllRowsForFile($fileName);
 
         $expectedRows = [
-            ['header1','header2','header3','header4'],
-            ['val11','val12','val13','val14'],
-            ['val21','','val23','val23'],
+            ['header1', 'header2', 'header3', 'header4'],
+            ['val11', 'val12', 'val13', 'val14'],
+            ['val21', '', 'val23', 'val23'],
             ['', 10.43, 29.11],
         ];
 
@@ -149,7 +149,6 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals($expectedRows, $allRows);
     }
-
 
     /**
      * @return void
@@ -228,7 +227,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     {
         $allRows = $this->getAllRowsForFile('sheet_with_empty_rows.ods');
 
-        $this->assertEquals(3, count($allRows), 'There should be only 3 rows, because the empty rows are skipped');
+        $this->assertCount(3, $allRows, 'There should be only 3 rows, because the empty rows are skipped');
 
         $expectedRows = [
             // skipped row here
@@ -248,7 +247,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     {
         $allRows = $this->getAllRowsForFile('sheet_with_empty_rows.ods', false, true);
 
-        $this->assertEquals(6, count($allRows), 'There should be 6 rows');
+        $this->assertCount(6, $allRows, 'There should be 6 rows');
 
         $expectedRows = [
             [''],
@@ -278,6 +277,16 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals([$expectedRow], $allRows);
     }
 
+    /**
+     * @return void
+     */
+    public function testReadShouldSupportWhitespaceAsXML()
+    {
+        $allRows = $this->getAllRowsForFile('sheet_with_whitespaces_as_xml.ods');
+
+        $expectedRow = ["Lorem  ipsum\tdolor sit amet"];
+        $this->assertEquals([$expectedRow], $allRows);
+    }
 
     /**
      * @NOTE: The LIBXML_NOENT is used to ACTUALLY substitute entities (and should therefore not be used)
@@ -286,6 +295,10 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
      */
     public function testReadShouldBeProtectedAgainstBillionLaughsAttack()
     {
+        if (function_exists('xdebug_code_coverage_started') && xdebug_code_coverage_started()) {
+            $this->markTestSkipped('test not compatible with code coverage');
+        }
+
         $startTime = microtime(true);
         $fileName = 'attack_billion_laughs.ods';
 
@@ -309,6 +322,10 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
      */
     public function testReadShouldBeProtectedAgainstQuadraticBlowupAttack()
     {
+        if (function_exists('xdebug_code_coverage_started') && xdebug_code_coverage_started()) {
+            $this->markTestSkipped('test not compatible with code coverage');
+        }
+
         $startTime = microtime(true);
 
         $fileName = 'attack_quadratic_blowup.ods';
@@ -348,14 +365,14 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Reader\Exception\IteratorNotRewindableException
-     *
      * @return void
      */
     public function testReadShouldThrowIfTryingToRewindRowIterator()
     {
+        $this->expectException(IteratorNotRewindableException::class);
+
         $resourcePath = $this->getResourcePath('one_sheet_with_strings.ods');
-        $reader = ReaderFactory::create(Type::ODS);
+        $reader = ReaderEntityFactory::createODSReader();
         $reader->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheet) {
@@ -379,7 +396,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = [];
         $resourcePath = $this->getResourcePath('two_sheets_with_strings.ods');
 
-        $reader = ReaderFactory::create(Type::ODS);
+        $reader = ReaderEntityFactory::createODSReader();
         $reader->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheet) {
@@ -389,7 +406,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         // this loop should only add the first row of each sheet
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
                 break;
             }
         }
@@ -397,7 +414,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         // this loop should only add the first row of the first sheet
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
                 break;
             }
 
@@ -416,26 +433,24 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testReadWithUnsupportedCustomStreamWrapper()
     {
-        /** @var \Box\Spout\Reader\ODS\Reader $reader */
-        $reader = ReaderFactory::create(Type::ODS);
+        $this->expectException(IOException::class);
+
+        $reader = ReaderEntityFactory::createODSReader();
         $reader->open('unsupported://foobar');
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testReadWithSupportedCustomStreamWrapper()
     {
-        /** @var \Box\Spout\Reader\ODS\Reader $reader */
-        $reader = ReaderFactory::create(Type::ODS);
+        $this->expectException(IOException::class);
+
+        $reader = ReaderEntityFactory::createODSReader();
         $reader->open('php://memory');
     }
 
@@ -450,7 +465,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $expectedRows = [
             ['A', 'B', 'C'],
             ['1', '2', '3'],
-            ['0', '0', '0']
+            ['0', '0', '0'],
         ];
         $this->assertEquals($expectedRows, $allRows, 'There should be only 3 rows, because zeros (0) are valid values');
     }
@@ -466,7 +481,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $expectedRows = [
             ['A', 'B', 'C'],
             ['0', '', ''],
-            ['1', '1', '']
+            ['1', '1', ''],
         ];
         $this->assertEquals($expectedRows, $allRows, 'There should be 3 rows, with equal length');
     }
@@ -513,7 +528,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = $this->getAllRowsForFile('sheet_with_inline_font_formatting.ods');
 
         $expectedRows = [
-            ['I am a yellow bird']
+            ['I am a yellow bird'],
         ];
 
         $this->assertEquals($expectedRows, $allRows, 'Text formatted inline should be read');
@@ -521,8 +536,8 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param string $fileName
-     * @param bool|void $shouldFormatDates
-     * @param bool|void $shouldPreserveEmptyRows
+     * @param bool $shouldFormatDates
+     * @param bool $shouldPreserveEmptyRows
      * @return array All the read rows the given file
      */
     private function getAllRowsForFile($fileName, $shouldFormatDates = false, $shouldPreserveEmptyRows = false)
@@ -530,15 +545,14 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = [];
         $resourcePath = $this->getResourcePath($fileName);
 
-        /** @var \Box\Spout\Reader\ODS\Reader $reader */
-        $reader = ReaderFactory::create(Type::ODS);
+        $reader = ReaderEntityFactory::createODSReader();
         $reader->setShouldFormatDates($shouldFormatDates);
         $reader->setShouldPreserveEmptyRows($shouldPreserveEmptyRows);
         $reader->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheetIndex => $sheet) {
             foreach ($sheet->getRowIterator() as $rowIndex => $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
             }
         }
 

@@ -5,7 +5,7 @@
  */
 class ReflectionHelper
 {
-    private static $privateVarsToReset = array();
+    private static $privateVarsToReset = [];
 
     /**
      * Resets any static vars that were set to their
@@ -20,7 +20,7 @@ class ReflectionHelper
                 self::setStaticValue($class, $valueName, $originalValue, $saveOriginalValue = false);
             }
         }
-        self::$privateVarsToReset = array();
+        self::$privateVarsToReset = [];
     }
 
     /**
@@ -51,7 +51,7 @@ class ReflectionHelper
      * @param string $class
      * @param string $valueName
      * @param mixed|null $value
-     * @param bool|void $saveOriginalValue
+     * @param bool $saveOriginalValue
      * @return void
      */
     public static function setStaticValue($class, $valueName, $value, $saveOriginalValue = true)
@@ -62,7 +62,7 @@ class ReflectionHelper
 
         // to prevent side-effects in later tests, we need to remember the original value and reset it on tear down
         // @NOTE: we need to check isset in case the original value was null or array()
-        if ($saveOriginalValue && (!isset(self::$privateVarsToReset[$class]) || !isset(self::$privateVarsToReset[$class][$name]))) {
+        if ($saveOriginalValue && (!isset(self::$privateVarsToReset[$class]) || !isset(self::$privateVarsToReset[$class][$valueName]))) {
             self::$privateVarsToReset[$class][$valueName] = $reflectionProperty->getValue();
         }
         $reflectionProperty->setValue($value);
@@ -95,7 +95,6 @@ class ReflectionHelper
      *
      * @param object $object
      * @param string $methodName
-     * @param *mixed|null $params
      *
      * @return mixed|null
      */

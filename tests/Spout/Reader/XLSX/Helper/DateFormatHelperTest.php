@@ -2,12 +2,12 @@
 
 namespace Box\Spout\Reader\XLSX\Helper;
 
+use PHPUnit\Framework\TestCase;
+
 /**
  * Class DateFormatHelperTest
- *
- * @package Box\Spout\Reader\XLSX\Helper
  */
-class DateFormatHelperTest extends \PHPUnit_Framework_TestCase
+class DateFormatHelperTest extends TestCase
 {
     /**
      * @return array

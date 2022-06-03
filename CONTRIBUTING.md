@@ -6,7 +6,7 @@ All contributions are welcome to this project.
 
 Before a contribution can be merged into this project, please fill out the Contributor License Agreement (CLA) located at:
 
-http://opensource.box.com/cla
+https://opensource.box.com/cla
 
 To learn more about CLAs and why they are important to open source projects, please see the [Wikipedia entry](http://en.wikipedia.org/wiki/Contributor_License_Agreement).
 
@@ -68,7 +68,21 @@ This will add your changes on top of what's already in upstream, minimizing merg
 
 Make sure that all tests are passing before submitting a pull request.
 
-### Step 8: Send the pull request
+### Step 8: Fix code style
+
+Run the following command to check the code style of your changes:
+
+```
+vendor/bin/php-cs-fixer fix --config=.php_cs.dist --verbose --diff --dry-run --diff-format=udiff
+```
+
+This will print a diff of proposed code style changes. To apply these suggestions, run the following command:
+
+```
+vendor/bin/php-cs-fixer fix --config=.php_cs.dist
+```
+
+### Step 9: Send the pull request
 
 Send the pull request from your feature branch to us. Be sure to include a description that lets us know what work you did.
 

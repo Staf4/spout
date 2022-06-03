@@ -2,19 +2,20 @@
 
 namespace Box\Spout\Writer\ODS;
 
-use Box\Spout\Common\Type;
 use Box\Spout\TestUsingResource;
-use Box\Spout\Writer\Common\Sheet;
-use Box\Spout\Writer\WriterFactory;
+use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
+use Box\Spout\Writer\Common\Entity\Sheet;
+use Box\Spout\Writer\Exception\InvalidSheetNameException;
+use Box\Spout\Writer\RowCreationHelper;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class SheetTest
- *
- * @package Box\Spout\Writer\ODS
  */
-class SheetTest extends \PHPUnit_Framework_TestCase
+class SheetTest extends TestCase
 {
     use TestUsingResource;
+    use RowCreationHelper;
 
     /**
      * @return void
@@ -23,7 +24,7 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     {
         $sheets = $this->writeDataToMulitpleSheetsAndReturnSheets('test_get_sheet_index.ods');
 
-        $this->assertEquals(2, count($sheets), '2 sheets should have been created');
+        $this->assertCount(2, $sheets, '2 sheets should have been created');
         $this->assertEquals(0, $sheets[0]->getIndex(), 'The first sheet should be index 0');
         $this->assertEquals(1, $sheets[1]->getIndex(), 'The second sheet should be index 1');
     }
@@ -35,7 +36,7 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     {
         $sheets = $this->writeDataToMulitpleSheetsAndReturnSheets('test_get_sheet_name.ods');
 
-        $this->assertEquals(2, count($sheets), '2 sheets should have been created');
+        $this->assertCount(2, $sheets, '2 sheets should have been created');
         $this->assertEquals('Sheet1', $sheets[0]->getName(), 'Invalid name for the first sheet');
         $this->assertEquals('Sheet2', $sheets[1]->getName(), 'Invalid name for the second sheet');
     }
@@ -53,16 +54,17 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Writer\Exception\InvalidSheetNameException
      * @return void
      */
     public function testSetSheetNameShouldThrowWhenNameIsAlreadyUsed()
     {
+        $this->expectException(InvalidSheetNameException::class);
+
         $fileName = 'test_set_name_with_non_unique_name.ods';
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::ODS);
+        $writer = WriterEntityFactory::createODSWriter();
         $writer->openToFile($resourcePath);
 
         $customSheetName = 'Sheet name';
@@ -76,22 +78,37 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @return void
+     */
+    public function testSetSheetVisibilityShouldCreateSheetHidden()
+    {
+        $fileName = 'test_set_visibility_should_create_sheet_hidden.xlsx';
+        $this->writeDataToHiddenSheet($fileName);
+
+        $resourcePath = $this->getGeneratedResourcePath($fileName);
+        $pathToContentFile = $resourcePath . '#content.xml';
+        $xmlContents = file_get_contents('zip://' . $pathToContentFile);
+
+        $this->assertStringContainsString(' table:display="false"', $xmlContents, 'The sheet visibility should have been changed to "hidden"');
+    }
+
+    /**
      * @param string $fileName
      * @param string $sheetName
-     * @return Sheet
+     * @return void
      */
     private function writeDataAndReturnSheetWithCustomName($fileName, $sheetName)
     {
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::ODS);
+        $writer = WriterEntityFactory::createODSWriter();
         $writer->openToFile($resourcePath);
 
         $sheet = $writer->getCurrentSheet();
         $sheet->setName($sheetName);
 
-        $writer->addRow(['ods--11', 'ods--12']);
+        $writer->addRow($this->createRowFromValues(['ods--11', 'ods--12']));
         $writer->close();
     }
 
@@ -104,17 +121,35 @@ class SheetTest extends \PHPUnit_Framework_TestCase
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        /** @var \Box\Spout\Writer\ODS\Writer $writer */
-        $writer = WriterFactory::create(Type::ODS);
+        $writer = WriterEntityFactory::createODSWriter();
         $writer->openToFile($resourcePath);
 
-        $writer->addRow(['ods--sheet1--11', 'ods--sheet1--12']);
+        $writer->addRow($this->createRowFromValues(['ods--sheet1--11', 'ods--sheet1--12']));
         $writer->addNewSheetAndMakeItCurrent();
-        $writer->addRow(['ods--sheet2--11', 'ods--sheet2--12', 'ods--sheet2--13']);
+        $writer->addRow($this->createRowFromValues(['ods--sheet2--11', 'ods--sheet2--12', 'ods--sheet2--13']));
 
         $writer->close();
 
         return $writer->getSheets();
+    }
+
+    /**
+     * @param string $fileName
+     * @return void
+     */
+    private function writeDataToHiddenSheet($fileName)
+    {
+        $this->createGeneratedFolderIfNeeded($fileName);
+        $resourcePath = $this->getGeneratedResourcePath($fileName);
+
+        $writer = WriterEntityFactory::createODSWriter();
+        $writer->openToFile($resourcePath);
+
+        $sheet = $writer->getCurrentSheet();
+        $sheet->setIsVisible(false);
+
+        $writer->addRow($this->createRowFromValues(['ods--11', 'ods--12']));
+        $writer->close();
     }
 
     /**
@@ -129,6 +164,6 @@ class SheetTest extends \PHPUnit_Framework_TestCase
         $pathToWorkbookFile = $resourcePath . '#content.xml';
         $xmlContents = file_get_contents('zip://' . $pathToWorkbookFile);
 
-        $this->assertContains("table:name=\"$expectedName\"", $xmlContents, $message);
+        $this->assertStringContainsString("table:name=\"$expectedName\"", $xmlContents, $message);
     }
 }

@@ -2,62 +2,74 @@
 
 namespace Box\Spout\Writer\CSV;
 
-use Box\Spout\TestUsingResource;
-use Box\Spout\Common\Type;
+use Box\Spout\Common\Entity\Row;
+use Box\Spout\Common\Exception\InvalidArgumentException;
+use Box\Spout\Common\Exception\IOException;
 use Box\Spout\Common\Helper\EncodingHelper;
-use Box\Spout\Writer\WriterFactory;
+use Box\Spout\TestUsingResource;
+use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
+use Box\Spout\Writer\Exception\WriterNotOpenedException;
+use Box\Spout\Writer\RowCreationHelper;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class WriterTest
- *
- * @package Box\Spout\Writer\CSV
  */
-class WriterTest extends \PHPUnit_Framework_TestCase
+class WriterTest extends TestCase
 {
     use TestUsingResource;
+    use RowCreationHelper;
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
+     * @return void
      */
     public function testWriteShouldThrowExceptionIfCannotOpenFileForWriting()
     {
+        $this->expectException(IOException::class);
+
         $fileName = 'file_that_wont_be_written.csv';
         $this->createUnwritableFolderIfNeeded();
         $filePath = $this->getGeneratedUnwritableResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::CSV);
+        $writer = WriterEntityFactory::createCSVWriter();
         @$writer->openToFile($filePath);
-        $writer->addRow(['csv--11', 'csv--12']);
+        $writer->addRow($this->createRowFromValues(['csv--11', 'csv--12']));
         $writer->close();
     }
 
     /**
-     * @expectedException \Box\Spout\Writer\Exception\WriterNotOpenedException
+     * @return void
      */
     public function testWriteShouldThrowExceptionIfCallAddRowBeforeOpeningWriter()
     {
-        $writer = WriterFactory::create(Type::CSV);
-        $writer->addRow(['csv--11', 'csv--12']);
+        $this->expectException(WriterNotOpenedException::class);
+
+        $writer = WriterEntityFactory::createCSVWriter();
+        $writer->addRow($this->createRowFromValues(['csv--11', 'csv--12']));
         $writer->close();
     }
 
     /**
-     * @expectedException \Box\Spout\Writer\Exception\WriterNotOpenedException
+     * @return void
      */
     public function testWriteShouldThrowExceptionIfCallAddRowsBeforeOpeningWriter()
     {
-        $writer = WriterFactory::create(Type::CSV);
-        $writer->addRows([['csv--11', 'csv--12']]);
+        $this->expectException(WriterNotOpenedException::class);
+
+        $writer = WriterEntityFactory::createCSVWriter();
+        $writer->addRow($this->createRowFromValues(['csv--11', 'csv--12']));
         $writer->close();
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\InvalidArgumentException
+     * @return void
      */
     public function testAddRowsShouldThrowExceptionIfRowsAreNotArrayOfArrays()
     {
-        $writer = WriterFactory::create(Type::CSV);
-        $writer->addRows(['csv--11', 'csv--12']);
+        $this->expectException(InvalidArgumentException::class);
+
+        $writer = WriterEntityFactory::createCSVWriter();
+        $writer->addRows([['csv--11', 'csv--12']]);
         $writer->close();
     }
 
@@ -70,12 +82,13 @@ class WriterTest extends \PHPUnit_Framework_TestCase
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::CSV);
+        $writer = WriterEntityFactory::createCSVWriter();
         $writer->close(); // This call should not cause any error
 
         $writer->openToFile($resourcePath);
         $writer->close();
         $writer->close(); // This call should not cause any error
+        $this->expectNotToPerformAssertions();
     }
 
     /**
@@ -83,12 +96,12 @@ class WriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWriteShouldAddUtf8Bom()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['csv--11', 'csv--12'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_utf8_bom.csv');
 
-        $this->assertContains(EncodingHelper::BOM_UTF8, $writtenContent, 'The CSV file should contain a UTF-8 BOM');
+        $this->assertStringStartsWith(EncodingHelper::BOM_UTF8, $writtenContent, 'The CSV file should contain a UTF-8 BOM');
     }
 
     /**
@@ -96,26 +109,12 @@ class WriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWriteShouldNotAddUtf8Bom()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['csv--11', 'csv--12'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_no_bom.csv', ',', '"', false);
 
-        $this->assertNotContains(EncodingHelper::BOM_UTF8, $writtenContent, 'The CSV file should not contain a UTF-8 BOM');
-    }
-
-    /**
-     * @return void
-     */
-    public function testWriteShouldSupportAssociativeArrays()
-    {
-        $allRows = [
-            ['foo' => 'csv--11', 'bar' => 'csv--12'],
-        ];
-        $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_from_associative_arrays.csv');
-        $writtenContent = $this->trimWrittenContent($writtenContent);
-
-        $this->assertEquals('csv--11,csv--12', $writtenContent, 'Values from associative arrays should be written');
+        $this->assertStringNotContainsString(EncodingHelper::BOM_UTF8, $writtenContent, 'The CSV file should not contain a UTF-8 BOM');
     }
 
     /**
@@ -123,9 +122,9 @@ class WriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWriteShouldSupportNullValues()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['csv--11', null, 'csv--13'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_null_values.csv');
         $writtenContent = $this->trimWrittenContent($writtenContent);
 
@@ -135,17 +134,17 @@ class WriterTest extends \PHPUnit_Framework_TestCase
     /**
      * @return void
      */
-    public function testWriteShouldSkipEmptyRows()
+    public function testWriteShouldNotSkipEmptyRows()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['csv--11', 'csv--12'],
             [],
             ['csv--31', 'csv--32'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_empty_rows.csv');
         $writtenContent = $this->trimWrittenContent($writtenContent);
 
-        $this->assertEquals("csv--11,csv--12\ncsv--31,csv--32", $writtenContent, 'Empty rows should be skipped');
+        $this->assertEquals("csv--11,csv--12\n\ncsv--31,csv--32", $writtenContent, 'Empty rows should be skipped');
     }
 
     /**
@@ -153,10 +152,10 @@ class WriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWriteShouldSupportCustomFieldDelimiter()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['csv--11', 'csv--12', 'csv--13'],
             ['csv--21', 'csv--22', 'csv--23'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_pipe_delimiters.csv', '|');
         $writtenContent = $this->trimWrittenContent($writtenContent);
 
@@ -168,29 +167,40 @@ class WriterTest extends \PHPUnit_Framework_TestCase
      */
     public function testWriteShouldSupportCustomFieldEnclosure()
     {
-        $allRows = [
+        $allRows = $this->createRowsFromValues([
             ['This is, a comma', 'csv--12', 'csv--13'],
-        ];
+        ]);
         $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_pound_enclosures.csv', ',', '#');
         $writtenContent = $this->trimWrittenContent($writtenContent);
 
         $this->assertEquals('#This is, a comma#,csv--12,csv--13', $writtenContent, 'The fields should be enclosed with #');
     }
 
+    public function testWriteShouldSupportedEscapedCharacters()
+    {
+        $allRows = $this->createRowsFromValues([
+            ['"csv--11"', 'csv--12\\', 'csv--13\\\\', 'csv--14\\\\\\'],
+        ]);
+        $writtenContent = $this->writeToCsvFileAndReturnWrittenContent($allRows, 'csv_with_escaped_characters.csv');
+        $writtenContent = $this->trimWrittenContent($writtenContent);
+
+        $this->assertEquals('"""csv--11""",csv--12\\,csv--13\\\\,csv--14\\\\\\', $writtenContent, 'The \'"\' and \'\\\' characters should be properly escaped');
+    }
+
     /**
-     * @param array  $allRows
+     * @param Row[]  $allRows
      * @param string $fileName
      * @param string $fieldDelimiter
      * @param string $fieldEnclosure
      * @param bool   $shouldAddBOM
-     * @return null|string
+     * @return string
      */
     private function writeToCsvFileAndReturnWrittenContent($allRows, $fileName, $fieldDelimiter = ',', $fieldEnclosure = '"', $shouldAddBOM = true)
     {
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::CSV);
+        $writer = WriterEntityFactory::createCSVWriter();
         $writer->setFieldDelimiter($fieldDelimiter);
         $writer->setFieldEnclosure($fieldEnclosure);
         $writer->setShouldAddBOM($shouldAddBOM);

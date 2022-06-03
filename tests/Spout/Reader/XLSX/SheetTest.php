@@ -2,16 +2,14 @@
 
 namespace Box\Spout\Reader\XLSX;
 
-use Box\Spout\Common\Type;
-use Box\Spout\Reader\ReaderFactory;
+use Box\Spout\Reader\Common\Creator\ReaderEntityFactory;
 use Box\Spout\TestUsingResource;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class SheetTest
- *
- * @package Box\Spout\Reader\XLSX
  */
-class SheetTest extends \PHPUnit_Framework_TestCase
+class SheetTest extends TestCase
 {
     use TestUsingResource;
 
@@ -33,13 +31,24 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @return void
+     */
+    public function testReaderShouldReturnCorrectSheetVisibility()
+    {
+        $sheets = $this->openFileAndReturnSheets('two_sheets_one_hidden_one_not.xlsx');
+
+        $this->assertFalse($sheets[0]->isVisible());
+        $this->assertTrue($sheets[1]->isVisible());
+    }
+
+    /**
      * @param string $fileName
      * @return Sheet[]
      */
     private function openFileAndReturnSheets($fileName)
     {
         $resourcePath = $this->getResourcePath($fileName);
-        $reader = ReaderFactory::create(Type::XLSX);
+        $reader = ReaderEntityFactory::createXLSXReader();
         $reader->open($resourcePath);
 
         $sheets = [];

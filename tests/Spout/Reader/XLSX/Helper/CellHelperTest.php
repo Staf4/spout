@@ -2,36 +2,14 @@
 
 namespace Box\Spout\Reader\XLSX\Helper;
 
+use Box\Spout\Common\Exception\InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
+
 /**
  * Class CellHelperTest
- *
- * @package Box\Spout\Reader\XLSX\Helper
  */
-class CellHelperTest extends \PHPUnit_Framework_TestCase
+class CellHelperTest extends TestCase
 {
-    /**
-     * @return array
-     */
-    public function dataProviderForTestFillMissingArrayIndexes()
-    {
-        return [
-            [ null, [] ],
-            [ [], [] ],
-            [ [1 => 1, 3 => 3], ['FILL', 1, 'FILL', 3] ]
-        ];
-    }
-
-    /**
-     * @dataProvider dataProviderForTestFillMissingArrayIndexes
-     * @param array $arrayToFill
-     * @param array $expectedFilledArray
-     */
-    public function testFillMissingArrayIndexes($arrayToFill, array $expectedFilledArray)
-    {
-        $filledArray = CellHelper::fillMissingArrayIndexes($arrayToFill, 'FILL');
-        $this->assertEquals($expectedFilledArray, $filledArray);
-    }
-
     /**
      * @return array
      */
@@ -60,12 +38,12 @@ class CellHelperTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\InvalidArgumentException
-     *
      * @return void
      */
     public function testGetColumnIndexFromCellIndexShouldThrowIfInvalidCellIndex()
     {
+        $this->expectException(InvalidArgumentException::class);
+
         CellHelper::getColumnIndexFromCellIndex('InvalidCellIndex');
     }
 }

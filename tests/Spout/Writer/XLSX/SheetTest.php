@@ -2,28 +2,29 @@
 
 namespace Box\Spout\Writer\XLSX;
 
-use Box\Spout\Common\Type;
 use Box\Spout\TestUsingResource;
-use Box\Spout\Writer\Common\Sheet;
-use Box\Spout\Writer\WriterFactory;
+use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
+use Box\Spout\Writer\Common\Entity\Sheet;
+use Box\Spout\Writer\Exception\InvalidSheetNameException;
+use Box\Spout\Writer\RowCreationHelper;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class SheetTest
- *
- * @package Box\Spout\Writer\XLSX
  */
-class SheetTest extends \PHPUnit_Framework_TestCase
+class SheetTest extends TestCase
 {
     use TestUsingResource;
+    use RowCreationHelper;
 
     /**
      * @return void
      */
     public function testGetSheetIndex()
     {
-        $sheets = $this->writeDataToMulitpleSheetsAndReturnSheets('test_get_sheet_index.xlsx');
+        $sheets = $this->writeDataToMultipleSheetsAndReturnSheets('test_get_sheet_index.xlsx');
 
-        $this->assertEquals(2, count($sheets), '2 sheets should have been created');
+        $this->assertCount(2, $sheets, '2 sheets should have been created');
         $this->assertEquals(0, $sheets[0]->getIndex(), 'The first sheet should be index 0');
         $this->assertEquals(1, $sheets[1]->getIndex(), 'The second sheet should be index 1');
     }
@@ -33,9 +34,9 @@ class SheetTest extends \PHPUnit_Framework_TestCase
      */
     public function testGetSheetName()
     {
-        $sheets = $this->writeDataToMulitpleSheetsAndReturnSheets('test_get_sheet_name.xlsx');
+        $sheets = $this->writeDataToMultipleSheetsAndReturnSheets('test_get_sheet_name.xlsx');
 
-        $this->assertEquals(2, count($sheets), '2 sheets should have been created');
+        $this->assertCount(2, $sheets, '2 sheets should have been created');
         $this->assertEquals('Sheet1', $sheets[0]->getName(), 'Invalid name for the first sheet');
         $this->assertEquals('Sheet2', $sheets[1]->getName(), 'Invalid name for the second sheet');
     }
@@ -47,22 +48,23 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     {
         $fileName = 'test_set_name_should_create_sheet_with_custom_name.xlsx';
         $customSheetName = 'CustomName';
-        $this->writeDataAndReturnSheetWithCustomName($fileName, $customSheetName);
+        $this->writeDataToSheetWithCustomName($fileName, $customSheetName);
 
         $this->assertSheetNameEquals($customSheetName, $fileName, "The sheet name should have been changed to '$customSheetName'");
     }
 
     /**
-     * @expectedException \Box\Spout\Writer\Exception\InvalidSheetNameException
      * @return void
      */
     public function testSetSheetNameShouldThrowWhenNameIsAlreadyUsed()
     {
+        $this->expectException(InvalidSheetNameException::class);
+
         $fileName = 'test_set_name_with_non_unique_name.xlsx';
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::XLSX);
+        $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToFile($resourcePath);
 
         $customSheetName = 'Sheet name';
@@ -76,45 +78,80 @@ class SheetTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @return void
+     */
+    public function testSetSheetVisibilityShouldCreateSheetHidden()
+    {
+        $fileName = 'test_set_visibility_should_create_sheet_hidden.xlsx';
+        $this->writeDataToHiddenSheet($fileName);
+
+        $resourcePath = $this->getGeneratedResourcePath($fileName);
+        $pathToWorkbookFile = $resourcePath . '#xl/workbook.xml';
+        $xmlContents = file_get_contents('zip://' . $pathToWorkbookFile);
+
+        $this->assertStringContainsString(' state="hidden"', $xmlContents, 'The sheet visibility should have been changed to "hidden"');
+    }
+
+    /**
      * @param string $fileName
      * @param string $sheetName
      * @return Sheet
      */
-    private function writeDataAndReturnSheetWithCustomName($fileName, $sheetName)
+    private function writeDataToSheetWithCustomName($fileName, $sheetName)
     {
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        $writer = WriterFactory::create(Type::XLSX);
+        $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToFile($resourcePath);
 
         $sheet = $writer->getCurrentSheet();
         $sheet->setName($sheetName);
 
-        $writer->addRow(['xlsx--11', 'xlsx--12']);
+        $writer->addRow($this->createRowFromValues(['xlsx--11', 'xlsx--12']));
         $writer->close();
+
+        return $sheet;
     }
 
     /**
      * @param string $fileName
      * @return Sheet[]
      */
-    private function writeDataToMulitpleSheetsAndReturnSheets($fileName)
+    private function writeDataToMultipleSheetsAndReturnSheets($fileName)
     {
         $this->createGeneratedFolderIfNeeded($fileName);
         $resourcePath = $this->getGeneratedResourcePath($fileName);
 
-        /** @var \Box\Spout\Writer\XLSX\Writer $writer */
-        $writer = WriterFactory::create(Type::XLSX);
+        $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToFile($resourcePath);
 
-        $writer->addRow(['xlsx--sheet1--11', 'xlsx--sheet1--12']);
+        $writer->addRow($this->createRowFromValues(['xlsx--sheet1--11', 'xlsx--sheet1--12']));
         $writer->addNewSheetAndMakeItCurrent();
-        $writer->addRow(['xlsx--sheet2--11', 'xlsx--sheet2--12', 'xlsx--sheet2--13']);
+        $writer->addRow($this->createRowFromValues(['xlsx--sheet2--11', 'xlsx--sheet2--12', 'xlsx--sheet2--13']));
 
         $writer->close();
 
         return $writer->getSheets();
+    }
+
+    /**
+     * @param string $fileName
+     * @return void
+     */
+    private function writeDataToHiddenSheet($fileName)
+    {
+        $this->createGeneratedFolderIfNeeded($fileName);
+        $resourcePath = $this->getGeneratedResourcePath($fileName);
+
+        $writer = WriterEntityFactory::createXLSXWriter();
+        $writer->openToFile($resourcePath);
+
+        $sheet = $writer->getCurrentSheet();
+        $sheet->setIsVisible(false);
+
+        $writer->addRow($this->createRowFromValues(['xlsx--11', 'xlsx--12']));
+        $writer->close();
     }
 
     /**
@@ -129,6 +166,6 @@ class SheetTest extends \PHPUnit_Framework_TestCase
         $pathToWorkbookFile = $resourcePath . '#xl/workbook.xml';
         $xmlContents = file_get_contents('zip://' . $pathToWorkbookFile);
 
-        $this->assertContains("<sheet name=\"$expectedName\"", $xmlContents, $message);
+        $this->assertStringContainsString("<sheet name=\"$expectedName\"", $xmlContents, $message);
     }
 }

@@ -2,78 +2,81 @@
 
 namespace Box\Spout\Reader\CSV;
 
-use Box\Spout\Reader\ReaderFactory;
-use Box\Spout\Common\Type;
+use Box\Spout\Common\Creator\HelperFactory;
+use Box\Spout\Common\Exception\IOException;
 use Box\Spout\Common\Helper\EncodingHelper;
+use Box\Spout\Common\Helper\GlobalFunctionsHelper;
+use Box\Spout\Reader\CSV\Creator\InternalEntityFactory;
+use Box\Spout\Reader\CSV\Manager\OptionsManager;
+use Box\Spout\Reader\Exception\ReaderNotOpenedException;
+use Box\Spout\Reader\ReaderInterface;
 use Box\Spout\TestUsingResource;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class ReaderTest
- *
- * @package Box\Spout\Reader\CSV
  */
-class ReaderTest extends \PHPUnit_Framework_TestCase
+class ReaderTest extends TestCase
 {
     use TestUsingResource;
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testOpenShouldThrowExceptionIfFileDoesNotExist()
     {
-        ReaderFactory::create(Type::CSV)->open('/path/to/fake/file.csv');
+        $this->expectException(IOException::class);
+
+        $this->createCSVReader()->open('/path/to/fake/file.csv');
     }
 
     /**
-     * @expectedException \Box\Spout\Reader\Exception\ReaderNotOpenedException
-     *
      * @return void
      */
     public function testOpenShouldThrowExceptionIfTryingToReadBeforeOpeningReader()
     {
-        ReaderFactory::create(Type::CSV)->getSheetIterator();
+        $this->expectException(ReaderNotOpenedException::class);
+
+        $this->createCSVReader()->getSheetIterator();
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testOpenShouldThrowExceptionIfFileNotReadable()
     {
+        $this->expectException(IOException::class);
+
+        /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper|\PHPUnit\Framework\MockObject\MockObject $helperStub */
         $helperStub = $this->getMockBuilder('\Box\Spout\Common\Helper\GlobalFunctionsHelper')
-                        ->setMethods(['is_readable'])
+                        ->onlyMethods(['is_readable'])
                         ->getMock();
         $helperStub->method('is_readable')->willReturn(false);
 
         $resourcePath = $this->getResourcePath('csv_standard.csv');
 
-        $reader = ReaderFactory::create(Type::CSV);
-        $reader->setGlobalFunctionsHelper($helperStub);
+        $reader = $this->createCSVReader(null, $helperStub);
         $reader->open($resourcePath);
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testOpenShouldThrowExceptionIfCannotOpenFile()
     {
+        $this->expectException(IOException::class);
+
+        /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper|\PHPUnit\Framework\MockObject\MockObject $helperStub */
         $helperStub = $this->getMockBuilder('\Box\Spout\Common\Helper\GlobalFunctionsHelper')
-                        ->setMethods(['fopen'])
+                        ->onlyMethods(['fopen'])
                         ->getMock();
         $helperStub->method('fopen')->willReturn(false);
 
         $resourcePath = $this->getResourcePath('csv_standard.csv');
 
-        $reader = ReaderFactory::create(Type::CSV);
-        $reader->setGlobalFunctionsHelper($helperStub);
+        $reader = $this->createCSVReader(null, $helperStub);
         $reader->open($resourcePath);
     }
-
 
     /**
      * @return void
@@ -139,7 +142,9 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     {
         $allRows = $this->getAllRowsForFile(
             'csv_with_multiple_empty_lines.csv',
-            ',', '"', "\n", EncodingHelper::ENCODING_UTF8,
+            ',',
+            '"',
+            EncodingHelper::ENCODING_UTF8,
             $shouldPreserveEmptyRows = true
         );
 
@@ -218,16 +223,12 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     /**
      * @return void
      */
-    public function testReadCustomEOLs()
+    public function testReadShouldSupportEscapedCharacters()
     {
-        $allRows = $this->getAllRowsForFile('csv_with_CR_EOL.csv', ',', '"', "\r");
+        $allRows = $this->getAllRowsForFile('csv_with_escaped_characters.csv');
 
-        $expectedRows = [
-            ['csv--11', 'csv--12', 'csv--13'],
-            ['csv--21', 'csv--22', 'csv--23'],
-            ['csv--31', 'csv--32', 'csv--33'],
-        ];
-        $this->assertEquals($expectedRows, $allRows);
+        $expectedRow = ['"csv--11"', 'csv--12\\', 'csv--13\\\\', 'csv--14\\\\\\'];
+        $this->assertEquals([$expectedRow], $allRows);
     }
 
     /**
@@ -235,8 +236,10 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
      */
     public function testReadShouldNotTruncateLineBreak()
     {
-        $allRows = $this->getAllRowsForFile('csv_with_line_breaks.csv', ',');
-        $this->assertEquals("This is,\na comma", $allRows[0][0]);
+        $allRows = $this->getAllRowsForFile('csv_with_line_breaks.csv');
+
+        $newLine = PHP_EOL; // to support both Unix and Windows
+        $this->assertEquals("This is,{$newLine}a comma", $allRows[0][0]);
     }
 
     /**
@@ -262,7 +265,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
      */
     public function testReadShouldSkipBom($fileName, $fileEncoding)
     {
-        $allRows = $this->getAllRowsForFile($fileName, ',', '"', "\n", $fileEncoding);
+        $allRows = $this->getAllRowsForFile($fileName, ',', '"', $fileEncoding);
 
         $expectedRows = [
             ['csv--11', 'csv--12', 'csv--13'],
@@ -301,9 +304,9 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = [];
         $resourcePath = $this->getResourcePath($fileName);
 
-        /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper|\PHPUnit_Framework_MockObject_MockObject $helperStub */
+        /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper|\PHPUnit\Framework\MockObject\MockObject $helperStub */
         $helperStub = $this->getMockBuilder('\Box\Spout\Common\Helper\GlobalFunctionsHelper')
-                        ->setMethods(['function_exists'])
+                        ->onlyMethods(['function_exists'])
                         ->getMock();
 
         $returnValueMap = [
@@ -313,15 +316,14 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $helperStub->method('function_exists')->will($this->returnValueMap($returnValueMap));
 
         /** @var \Box\Spout\Reader\CSV\Reader $reader */
-        $reader = ReaderFactory::create(Type::CSV);
+        $reader = $this->createCSVReader(null, $helperStub);
         $reader
-            ->setGlobalFunctionsHelper($helperStub)
             ->setEncoding($fileEncoding)
             ->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
             }
         }
 
@@ -343,7 +345,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $allRows = [];
         $resourcePath = $this->getResourcePath('csv_standard.csv');
 
-        $reader = ReaderFactory::create(Type::CSV);
+        $reader = $this->createCSVReader();
         $reader->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheet) {
@@ -352,19 +354,19 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
 
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
                 break;
             }
 
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
                 break;
             }
         }
 
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
                 break;
             }
         }
@@ -390,7 +392,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $expectedRows = [
             ['A', 'B', 'C'],
             ['1', '2', '3'],
-            ['0', '0', '0']
+            ['0', '0', '0'],
         ];
         $this->assertEquals($expectedRows, $allRows, 'There should be only 3 rows, because zeros (0) are valid values');
     }
@@ -406,7 +408,7 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         $expectedRows = [
             ['A', 'B', 'C'],
             ['0', '', ''],
-            ['1', '1', '']
+            ['1', '1', ''],
         ];
         $this->assertEquals($expectedRows, $allRows, 'There should be 3 rows, with equal length');
     }
@@ -419,54 +421,14 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     {
         $allRows = $this->getAllRowsForFile('sheet_with_untrimmed_strings.csv');
 
+        $newLine = PHP_EOL; // to support both Unix and Windows
         $expectedRows = [
             ['A'],
             [' A '],
-            ["\n\tA\n\t"],
+            ["$newLine\tA$newLine\t"],
         ];
 
         $this->assertEquals($expectedRows, $allRows, 'Cell values should not be trimmed');
-    }
-
-    /**
-     * @param string $fileName
-     * @param string|void $fieldDelimiter
-     * @param string|void $fieldEnclosure
-     * @param string|void $endOfLineCharacter
-     * @param string|void $encoding
-     * @param bool|void $shouldPreserveEmptyRows
-     * @return array All the read rows the given file
-     */
-    private function getAllRowsForFile(
-        $fileName,
-        $fieldDelimiter = ',',
-        $fieldEnclosure = '"',
-        $endOfLineCharacter = "\n",
-        $encoding = EncodingHelper::ENCODING_UTF8,
-        $shouldPreserveEmptyRows = false)
-    {
-        $allRows = [];
-        $resourcePath = $this->getResourcePath($fileName);
-
-        /** @var \Box\Spout\Reader\CSV\Reader $reader */
-        $reader = ReaderFactory::create(Type::CSV);
-        $reader
-            ->setFieldDelimiter($fieldDelimiter)
-            ->setFieldEnclosure($fieldEnclosure)
-            ->setEndOfLineCharacter($endOfLineCharacter)
-            ->setEncoding($encoding)
-            ->setShouldPreserveEmptyRows($shouldPreserveEmptyRows)
-            ->open($resourcePath);
-
-        foreach ($reader->getSheetIterator() as $sheetIndex => $sheet) {
-            foreach ($sheet->getRowIterator() as $rowIndex => $row) {
-                $allRows[] = $row;
-            }
-        }
-
-        $reader->close();
-
-        return $allRows;
     }
 
     /**
@@ -481,12 +443,12 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
         stream_wrapper_register('spout', SpoutTestStream::CLASS_NAME);
 
         /** @var \Box\Spout\Reader\CSV\Reader $reader */
-        $reader = ReaderFactory::create(Type::CSV);
+        $reader = $this->createCSVReader();
         $reader->open($resourcePath);
 
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
-                $allRows[] = $row;
+                $allRows[] = $row->toArray();
             }
         }
 
@@ -504,15 +466,66 @@ class ReaderTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Common\Exception\IOException
-     *
      * @return void
      */
     public function testReadWithUnsupportedCustomStreamWrapper()
     {
+        $this->expectException(IOException::class);
+
         /** @var \Box\Spout\Reader\CSV\Reader $reader */
-        $reader = ReaderFactory::create(Type::CSV);
+        $reader = $this->createCSVReader();
         $reader->open('unsupported://foobar');
     }
 
+    /**
+     * @param \Box\Spout\Common\Helper\GlobalFunctionsHelper|null $optionsManager
+     * @param \Box\Spout\Common\Manager\OptionsManagerInterface|null $globalFunctionsHelper
+     * @return ReaderInterface
+     */
+    private function createCSVReader($optionsManager = null, $globalFunctionsHelper = null)
+    {
+        $optionsManager = $optionsManager ?: new OptionsManager();
+        $globalFunctionsHelper = $globalFunctionsHelper ?: new GlobalFunctionsHelper();
+        $entityFactory = new InternalEntityFactory(new HelperFactory());
+
+        return new Reader($optionsManager, $globalFunctionsHelper, $entityFactory);
+    }
+
+    /**
+     * @param string $fileName
+     * @param string $fieldDelimiter
+     * @param string $fieldEnclosure
+     * @param string $encoding
+     * @param bool $shouldPreserveEmptyRows
+     * @return array All the read rows the given file
+     */
+    private function getAllRowsForFile(
+        $fileName,
+        $fieldDelimiter = ',',
+        $fieldEnclosure = '"',
+        $encoding = EncodingHelper::ENCODING_UTF8,
+        $shouldPreserveEmptyRows = false
+    ) {
+        $allRows = [];
+        $resourcePath = $this->getResourcePath($fileName);
+
+        /** @var \Box\Spout\Reader\CSV\Reader $reader */
+        $reader = $this->createCSVReader();
+        $reader
+            ->setFieldDelimiter($fieldDelimiter)
+            ->setFieldEnclosure($fieldEnclosure)
+            ->setEncoding($encoding)
+            ->setShouldPreserveEmptyRows($shouldPreserveEmptyRows)
+            ->open($resourcePath);
+
+        foreach ($reader->getSheetIterator() as $sheetIndex => $sheet) {
+            foreach ($sheet->getRowIterator() as $rowIndex => $row) {
+                $allRows[] = $row->toArray();
+            }
+        }
+
+        $reader->close();
+
+        return $allRows;
+    }
 }

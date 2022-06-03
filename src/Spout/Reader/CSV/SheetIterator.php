@@ -7,78 +7,74 @@ use Box\Spout\Reader\IteratorInterface;
 /**
  * Class SheetIterator
  * Iterate over CSV unique "sheet".
- *
- * @package Box\Spout\Reader\CSV
  */
 class SheetIterator implements IteratorInterface
 {
-    /** @var \Box\Spout\Reader\CSV\Sheet The CSV unique "sheet" */
+    /** @var Sheet The CSV unique "sheet" */
     protected $sheet;
 
     /** @var bool Whether the unique "sheet" has already been read */
     protected $hasReadUniqueSheet = false;
 
     /**
-     * @param resource $filePointer
-     * @param \Box\Spout\Reader\CSV\ReaderOptions $options
-     * @param \Box\Spout\Common\Helper\GlobalFunctionsHelper $globalFunctionsHelper
+     * @param Sheet $sheet Corresponding unique sheet
      */
-    public function __construct($filePointer, $options, $globalFunctionsHelper)
+    public function __construct($sheet)
     {
-        $this->sheet = new Sheet($filePointer, $options, $globalFunctionsHelper);
+        $this->sheet = $sheet;
     }
 
     /**
      * Rewind the Iterator to the first element
-     * @link http://php.net/manual/en/iterator.rewind.php
+     * @see http://php.net/manual/en/iterator.rewind.php
      *
      * @return void
      */
-    public function rewind()
+    public function rewind() : void
     {
         $this->hasReadUniqueSheet = false;
     }
 
     /**
      * Checks if current position is valid
-     * @link http://php.net/manual/en/iterator.valid.php
+     * @see http://php.net/manual/en/iterator.valid.php
      *
      * @return bool
      */
-    public function valid()
+    public function valid() : bool
     {
         return (!$this->hasReadUniqueSheet);
     }
 
     /**
      * Move forward to next element
-     * @link http://php.net/manual/en/iterator.next.php
+     * @see http://php.net/manual/en/iterator.next.php
      *
      * @return void
      */
-    public function next()
+    public function next() : void
     {
         $this->hasReadUniqueSheet = true;
     }
 
     /**
      * Return the current element
-     * @link http://php.net/manual/en/iterator.current.php
+     * @see http://php.net/manual/en/iterator.current.php
      *
-     * @return \Box\Spout\Reader\CSV\Sheet
+     * @return Sheet
      */
-    public function current()
+    public function current() : Sheet
     {
         return $this->sheet;
     }
 
     /**
      * Return the key of the current element
-     * @link http://php.net/manual/en/iterator.key.php
+     * @see http://php.net/manual/en/iterator.key.php
      *
      * @return int
      */
-    public function key()
+    public function key() : int
     {
         return 1;
     }
@@ -88,7 +84,7 @@ class SheetIterator implements IteratorInterface
      *
      * @return void
      */
-    public function end()
+    public function end() : void
     {
         // do nothing
     }

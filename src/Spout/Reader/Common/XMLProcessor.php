@@ -7,30 +7,26 @@ use Box\Spout\Reader\Wrapper\XMLReader;
 /**
  * Class XMLProcessor
  * Helps process XML files
- *
- * @package Box\Spout\Reader\Common
  */
 class XMLProcessor
 {
     /* Node types */
-    const NODE_TYPE_START = XMLReader::ELEMENT;
-    const NODE_TYPE_END = XMLReader::END_ELEMENT;
+    public const NODE_TYPE_START = XMLReader::ELEMENT;
+    public const NODE_TYPE_END = XMLReader::END_ELEMENT;
 
     /* Keys associated to reflection attributes to invoke a callback */
-    const CALLBACK_REFLECTION_METHOD = 'reflectionMethod';
-    const CALLBACK_REFLECTION_OBJECT = 'reflectionObject';
+    public const CALLBACK_REFLECTION_METHOD = 'reflectionMethod';
+    public const CALLBACK_REFLECTION_OBJECT = 'reflectionObject';
 
     /* Values returned by the callbacks to indicate what the processor should do next */
-    const PROCESSING_CONTINUE = 1;
-    const PROCESSING_STOP = 2;
-
+    public const PROCESSING_CONTINUE = 1;
+    public const PROCESSING_STOP = 2;
 
     /** @var \Box\Spout\Reader\Wrapper\XMLReader The XMLReader object that will help read sheet's XML data */
     protected $xmlReader;
 
     /** @var array Registered callbacks */
     private $callbacks = [];
-
 
     /**
      * @param \Box\Spout\Reader\Wrapper\XMLReader $xmlReader XMLReader object
@@ -77,7 +73,7 @@ class XMLProcessor
     {
         $callbackObject = $callback[0];
         $callbackMethodName = $callback[1];
-        $reflectionMethod = new \ReflectionMethod(get_class($callbackObject), $callbackMethodName);
+        $reflectionMethod = new \ReflectionMethod(\get_class($callbackObject), $callbackMethodName);
         $reflectionMethod->setAccessible(true);
 
         return [
@@ -90,8 +86,8 @@ class XMLProcessor
      * Resumes the reading of the XML file where it was left off.
      * Stops whenever a callback indicates that reading should stop or at the end of the file.
      *
-     * @return void
      * @throws \Box\Spout\Reader\Exception\XMLProcessingException
+     * @return void
      */
     public function readUntilStopped()
     {

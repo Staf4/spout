@@ -2,30 +2,33 @@
 
 namespace Box\Spout\Reader\CSV;
 
-use Box\Spout\Reader\IteratorInterface;
+use Box\Spout\Common\Entity\Row;
 use Box\Spout\Common\Helper\EncodingHelper;
+use Box\Spout\Common\Helper\GlobalFunctionsHelper;
+use Box\Spout\Common\Manager\OptionsManagerInterface;
+use Box\Spout\Reader\Common\Entity\Options;
+use Box\Spout\Reader\CSV\Creator\InternalEntityFactory;
+use Box\Spout\Reader\IteratorInterface;
 
 /**
  * Class RowIterator
  * Iterate over CSV rows.
- *
- * @package Box\Spout\Reader\CSV
  */
 class RowIterator implements IteratorInterface
 {
     /**
      * Value passed to fgetcsv. 0 means "unlimited" (slightly slower but accomodates for very long lines).
      */
-    const MAX_READ_BYTES_PER_LINE = 0;
+    public const MAX_READ_BYTES_PER_LINE = 0;
 
-    /** @var resource Pointer to the CSV file to read */
+    /** @var resource|null Pointer to the CSV file to read */
     protected $filePointer;
 
     /** @var int Number of read rows */
     protected $numReadRows = 0;
 
-    /** @var array|null Buffer used to store the row data, while checking if there are more rows to read */
-    protected $rowDataBuffer = null;
+    /** @var Row|null Buffer used to store the current row, while checking if there are more rows to read */
+    protected $rowBuffer;
 
     /** @var bool Indicates whether all rows have been read */
     protected $hasReachedEndOfFile = false;
@@ -39,51 +42,54 @@ class RowIterator implements IteratorInterface
     /** @var string Encoding of the CSV file to be read */
     protected $encoding;
 
-    /** @var string End of line delimiter, given by the user as input. */
-    protected $inputEOLDelimiter;
-
     /** @var bool Whether empty rows should be returned or skipped */
     protected $shouldPreserveEmptyRows;
-
-    /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper Helper to work with global functions */
-    protected $globalFunctionsHelper;
 
     /** @var \Box\Spout\Common\Helper\EncodingHelper Helper to work with different encodings */
     protected $encodingHelper;
 
-    /** @var string End of line delimiter, encoded using the same encoding as the CSV */
-    protected $encodedEOLDelimiter;
+    /** @var \Box\Spout\Reader\CSV\Creator\InternalEntityFactory Factory to create entities */
+    protected $entityFactory;
+
+    /** @var \Box\Spout\Common\Helper\GlobalFunctionsHelper Helper to work with global functions */
+    protected $globalFunctionsHelper;
 
     /**
      * @param resource $filePointer Pointer to the CSV file to read
-     * @param \Box\Spout\Reader\CSV\ReaderOptions $options
-     * @param \Box\Spout\Common\Helper\GlobalFunctionsHelper $globalFunctionsHelper
+     * @param OptionsManagerInterface $optionsManager
+     * @param EncodingHelper $encodingHelper
+     * @param InternalEntityFactory $entityFactory
+     * @param GlobalFunctionsHelper $globalFunctionsHelper
      */
-    public function __construct($filePointer, $options, $globalFunctionsHelper)
-    {
+    public function __construct(
+        $filePointer,
+        OptionsManagerInterface $optionsManager,
+        EncodingHelper $encodingHelper,
+        InternalEntityFactory $entityFactory,
+        GlobalFunctionsHelper $globalFunctionsHelper
+    ) {
         $this->filePointer = $filePointer;
-        $this->fieldDelimiter = $options->getFieldDelimiter();
-        $this->fieldEnclosure = $options->getFieldEnclosure();
-        $this->encoding = $options->getEncoding();
-        $this->inputEOLDelimiter = $options->getEndOfLineCharacter();
-        $this->shouldPreserveEmptyRows = $options->shouldPreserveEmptyRows();
+        $this->fieldDelimiter = $optionsManager->getOption(Options::FIELD_DELIMITER);
+        $this->fieldEnclosure = $optionsManager->getOption(Options::FIELD_ENCLOSURE);
+        $this->encoding = $optionsManager->getOption(Options::ENCODING);
+        $this->shouldPreserveEmptyRows = $optionsManager->getOption(Options::SHOULD_PRESERVE_EMPTY_ROWS);
+        $this->encodingHelper = $encodingHelper;
+        $this->entityFactory = $entityFactory;
         $this->globalFunctionsHelper = $globalFunctionsHelper;
-
-        $this->encodingHelper = new EncodingHelper($globalFunctionsHelper);
     }
 
     /**
      * Rewind the Iterator to the first element
-     * @link http://php.net/manual/en/iterator.rewind.php
+     * @see http://php.net/manual/en/iterator.rewind.php
      *
      * @return void
      */
-    public function rewind()
+    public function rewind() : void
     {
         $this->rewindAndSkipBom();
 
         $this->numReadRows = 0;
-        $this->rowDataBuffer = null;
+        $this->rowBuffer = null;
 
         $this->next();
     }
@@ -104,23 +110,23 @@ class RowIterator implements IteratorInterface
 
     /**
      * Checks if current position is valid
-     * @link http://php.net/manual/en/iterator.valid.php
+     * @see http://php.net/manual/en/iterator.valid.php
      *
      * @return bool
      */
-    public function valid()
+    public function valid() : bool
     {
         return ($this->filePointer && !$this->hasReachedEndOfFile);
     }
 
     /**
      * Move forward to next element. Reads data for the next unprocessed row.
-     * @link http://php.net/manual/en/iterator.next.php
+     * @see http://php.net/manual/en/iterator.next.php
      *
-     * @return void
      * @throws \Box\Spout\Common\Exception\EncodingConversionException If unable to convert data to UTF-8
+     * @return void
      */
-    public function next()
+    public function next() : void
     {
         $this->hasReachedEndOfFile = $this->globalFunctionsHelper->feof($this->filePointer);
 
@@ -130,8 +136,8 @@ class RowIterator implements IteratorInterface
     }
 
     /**
-     * @return void
      * @throws \Box\Spout\Common\Exception\EncodingConversionException If unable to convert data to UTF-8
+     * @return void
      */
     protected function readDataForNextRow()
     {
@@ -140,8 +146,9 @@ class RowIterator implements IteratorInterface
         } while ($this->shouldReadNextRow($rowData));
 
         if ($rowData !== false) {
-            // str_replace will replace NULL values by empty strings
-            $this->rowDataBuffer = str_replace(null, null, $rowData);
+            // array_map will replace NULL values by empty strings
+            $rowDataBufferAsArray = array_map(function ($value) { return (string) $value; }, $rowData);
+            $this->rowBuffer = $this->entityFactory->createRowFromArray($rowDataBufferAsArray);
             $this->numReadRows++;
         } else {
             // If we reach this point, it means end of file was reached.
@@ -171,8 +178,8 @@ class RowIterator implements IteratorInterface
      * As fgetcsv() does not manage correctly encoding for non UTF-8 data,
      * we remove manually whitespace with ltrim or rtrim (depending on the order of the bytes)
      *
-     * @return array|false The row for the current file pointer, encoded in UTF-8 or FALSE if nothing to read
      * @throws \Box\Spout\Common\Exception\EncodingConversionException If unable to convert data to UTF-8
+     * @return array|false The row for the current file pointer, encoded in UTF-8 or FALSE if nothing to read
      */
     protected function getNextUTF8EncodedRow()
     {
@@ -182,17 +189,17 @@ class RowIterator implements IteratorInterface
         }
 
         foreach ($encodedRowData as $cellIndex => $cellValue) {
-            switch($this->encoding) {
+            switch ($this->encoding) {
                 case EncodingHelper::ENCODING_UTF16_LE:
                 case EncodingHelper::ENCODING_UTF32_LE:
                     // remove whitespace from the beginning of a string as fgetcsv() add extra whitespace when it try to explode non UTF-8 data
-                    $cellValue = ltrim($cellValue);
+                    $cellValue = \ltrim($cellValue);
                     break;
 
                 case EncodingHelper::ENCODING_UTF16_BE:
                 case EncodingHelper::ENCODING_UTF32_BE:
                     // remove whitespace from the end of a string as fgetcsv() add extra whitespace when it try to explode non UTF-8 data
-                    $cellValue = rtrim($cellValue);
+                    $cellValue = \rtrim($cellValue);
                     break;
             }
 
@@ -203,47 +210,32 @@ class RowIterator implements IteratorInterface
     }
 
     /**
-     * Returns the end of line delimiter, encoded using the same encoding as the CSV.
-     * The return value is cached.
-     *
-     * @return string
-     */
-    protected function getEncodedEOLDelimiter()
-    {
-        if (!isset($this->encodedEOLDelimiter)) {
-            $this->encodedEOLDelimiter = $this->encodingHelper->attemptConversionFromUTF8($this->inputEOLDelimiter, $this->encoding);
-        }
-
-        return $this->encodedEOLDelimiter;
-    }
-
-    /**
      * @param array|bool $lineData Array containing the cells value for the line
      * @return bool Whether the given line is empty
      */
     protected function isEmptyLine($lineData)
     {
-        return (is_array($lineData) && count($lineData) === 1 && $lineData[0] === null);
+        return (\is_array($lineData) && \count($lineData) === 1 && $lineData[0] === null);
     }
 
     /**
      * Return the current element from the buffer
-     * @link http://php.net/manual/en/iterator.current.php
+     * @see http://php.net/manual/en/iterator.current.php
      *
-     * @return array|null
+     * @return Row|null
      */
-    public function current()
+    public function current() : ?Row
     {
-        return $this->rowDataBuffer;
+        return $this->rowBuffer;
     }
 
     /**
      * Return the key of the current element
-     * @link http://php.net/manual/en/iterator.key.php
+     * @see http://php.net/manual/en/iterator.key.php
      *
      * @return int
      */
-    public function key()
+    public function key() : int
     {
         return $this->numReadRows;
     }
@@ -253,7 +245,7 @@ class RowIterator implements IteratorInterface
      *
      * @return void
      */
-    public function end()
+    public function end() : void
     {
         // do nothing
     }

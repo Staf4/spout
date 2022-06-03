@@ -1,54 +1,64 @@
 # Spout
 
 [![Latest Stable Version](https://poser.pugx.org/box/spout/v/stable)](https://packagist.org/packages/box/spout)
-[![Project Status](http://opensource.box.com/badges/active.svg)](http://opensource.box.com/badges)
-[![Build Status](https://travis-ci.org/box/spout.svg?branch=master)](https://travis-ci.org/box/spout)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/box/spout/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/box/spout/?branch=master)
-[![Code Coverage](https://scrutinizer-ci.com/g/box/spout/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/box/spout/?branch=master)
+[![Project Status](https://opensource.box.com/badges/inactive.svg)](https://opensource.box.com/badges)
+[![example workflow](https://github.com/box/spout/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/box/spout/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Coverage Status](https://coveralls.io/repos/github/box/spout/badge.svg?branch=master)](https://coveralls.io/github/box/spout?branch=master)
 [![Total Downloads](https://poser.pugx.org/box/spout/downloads)](https://packagist.org/packages/box/spout)
 
-Spout is a PHP library to read and write spreadsheet files (CSV, XLSX and ODS), in a fast and scalable way.
-Contrary to other file readers or writers, it is capable of processing very large files while keeping the memory usage really low (less than 3MB).
+## 🪦 Archived project 🪦 
 
-Join the community and come discuss about Spout: [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/box/spout?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+This project has been archived and is no longer maintained. No bug fix and no additional features will be added.<br>
+You won't be able to submit new issues or pull requests, and no additional features will be added
+
+You can still use Spout as is in your projects though :)
+
+> Thanks to everyone who contributed to this project, from a typo fix to the new cool feature.<br>
+> It was great to see the involvement of this community!
+
+<br>
+
+## About
+
+Spout is a PHP library to read and write spreadsheet files (CSV, XLSX and ODS), in a fast and scalable way.
+Unlike other file readers or writers, it is capable of processing very large files, while keeping the memory usage really low (less than 3MB).
+
+Join the community and come discuss Spout: [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/box/spout?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 
 ## Documentation
 
-Full documentation can be found at [http://opensource.box.com/spout/](http://opensource.box.com/spout/).
+Full documentation can be found at [https://opensource.box.com/spout/](https://opensource.box.com/spout/).
 
 
 ## Requirements
 
-* PHP version 5.4.0 or higher
+* PHP version 7.2 or higher
 * PHP extension `php_zip` enabled
 * PHP extension `php_xmlreader` enabled
 
+## Upgrade guide
+
+Version 3 introduced new functionality but also some breaking changes. If you want to upgrade your Spout codebase from version 2 please consult the [Upgrade guide](UPGRADE-3.0.md). 
 
 ## Running tests
 
-On the `master` branch, only unit and functional tests are included. The performance tests require very large files and have been excluded.
-If you just want to check that everything is working as expected, executing the tests of the `master` branch is enough.
+The `master` branch includes unit, functional and performance tests.
+If you just want to check that everything is working as expected, executing the unit and functional tests is enough.
 
-If you want to run performance tests, you will need to checkout the `perf-tests` branch. Multiple test suites can then be run, depending on the expected output:
-
-* `phpunit` - runs the whole test suite (unit + functional + performance tests)
-* `phpunit --exclude-group perf-tests` - only runs the unit and functional tests
+* `phpunit` - runs unit and functional tests
 * `phpunit --group perf-tests` - only runs the performance tests
 
-For information, the performance tests take about 30 minutes to run (processing 1 million rows files is not a quick thing).
-
-> Performance tests status: [![Build Status](https://travis-ci.org/box/spout.svg?branch=perf-tests)](https://travis-ci.org/box/spout)
-
+For information, the performance tests take about 10 minutes to run (processing 1 million rows files is not a quick thing).
 
 ## Support
 
-You can ask questions, submit new features ideas or discuss about Spout in the chat room:<br>
+Spout is no longer actively supported. You can still ask questions, or discuss about it in the chat room:<br>
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/box/spout?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## Copyright and License
 
-Copyright 2017 Box, Inc. All rights reserved.
+Copyright 2022 Box, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

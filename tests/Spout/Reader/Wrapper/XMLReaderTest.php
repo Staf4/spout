@@ -2,15 +2,14 @@
 
 namespace Box\Spout\Reader\Wrapper;
 
-use Box\Spout\TestUsingResource;
 use Box\Spout\Reader\Exception\XMLProcessingException;
+use Box\Spout\TestUsingResource;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class XMLReaderTest
- *
- * @package Box\Spout\Reader\Wrapper
  */
-class XMLReaderTest extends \PHPUnit_Framework_TestCase
+class XMLReaderTest extends TestCase
 {
     use TestUsingResource;
 
@@ -26,7 +25,7 @@ class XMLReaderTest extends \PHPUnit_Framework_TestCase
         // using "@" to prevent errors/warning to be displayed
         $wasOpenSuccessful = @$xmlReader->openFileInZip($resourcePath, 'path/to/fake/file.xml');
 
-        $this->assertTrue($wasOpenSuccessful === false);
+        $this->assertFalse($wasOpenSuccessful);
     }
 
     /**
@@ -48,10 +47,12 @@ class XMLReaderTest extends \PHPUnit_Framework_TestCase
 
             // using the built-in XMLReader
             $xmlReader = new \XMLReader();
-            $this->assertTrue($xmlReader->open($nonExistingXMLFilePath) !== false);
-            $this->assertTrue(libxml_get_last_error() === false);
+            $this->assertNotFalse($xmlReader->open($nonExistingXMLFilePath));
+            $this->assertFalse(libxml_get_last_error());
 
             libxml_use_internal_errors($initialUseInternalErrorsSetting);
+        } else {
+            $this->markTestSkipped();
         }
     }
 
@@ -64,12 +65,12 @@ class XMLReaderTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Reader\Exception\XMLProcessingException
-     *
      * @return void
      */
     public function testReadShouldThrowExceptionOnError()
     {
+        $this->expectException(XMLProcessingException::class);
+
         $resourcePath = $this->getResourcePath('one_sheet_with_invalid_xml_characters.xlsx');
 
         $xmlReader = new XMLReader();
@@ -84,12 +85,12 @@ class XMLReaderTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException \Box\Spout\Reader\Exception\XMLProcessingException
-     *
      * @return void
      */
     public function testNextShouldThrowExceptionOnError()
     {
+        $this->expectException(XMLProcessingException::class);
+
         // The sharedStrings.xml file in "attack_billion_laughs.xlsx" contains
         // a doctype element that causes read errors
         $resourcePath = $this->getResourcePath('attack_billion_laughs.xlsx');
