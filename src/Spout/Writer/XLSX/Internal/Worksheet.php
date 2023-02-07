@@ -196,7 +196,9 @@ EOD;
         $rowIndex = $this->lastWrittenRowIndex + 1;
         $numCells = count($dataRow);
 
-        $rowXML = '<row r="' . $rowIndex . '" spans="1:' . $numCells . '">';
+        $rowXML = '<row r="' . $rowIndex . '" spans="1:' . $numCells . '" '
+            .((!empty($this->additionalSettings['rowsHeight'][$this->lastWrittenRowIndex])) ? ' customHeight="1" ht="'.$this->additionalSettings['rowsHeight'][$this->lastWrittenRowIndex].'"' : '')
+            .'>';
 
         foreach($dataRow as $cellValue) {
             $rowXML .= $this->getCellXML($rowIndex, $cellNumber, $cellValue, $style->getId());

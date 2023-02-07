@@ -121,6 +121,18 @@ class StyleBuilder
         return $this;
     }
 
+    public function setAlignHorizontal($val)
+    {
+        $this->style->setAlignHorizontal($val);
+        return $this;
+    }
+
+    public function setAlignVertical($val)
+    {
+        $this->style->setAlignVertical($val);
+        return $this;
+    }
+
     /**
      * Set a border
      *

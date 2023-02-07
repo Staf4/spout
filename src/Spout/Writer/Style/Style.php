@@ -61,6 +61,9 @@ class Style
     /** @var bool Whether the wrap text property was set */
     protected $hasSetWrapText = false;
 
+    public $alignHorizontal = 'left';
+    public $alignVertical = 'top';
+
     /**
      * @var Border
      */
@@ -277,6 +280,18 @@ class Style
     {
         $this->shouldWrapText = $shouldWrap;
         $this->hasSetWrapText = true;
+        return $this;
+    }
+
+    public function setAlignHorizontal($val)
+    {
+        $this->alignHorizontal = $val;
+        return $this;
+    }
+
+    public function setAlignVertical($val)
+    {
+        $this->alignVertical = $val;
         return $this;
     }
 
