@@ -61,3 +61,30 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+
+
+
+## Example
+use Box\Spout\Writer\Style\StyleBuilder;
+use Box\Spout\Writer\WriterFactory;
+// Инициализация
+$excel = WriterFactory::create(\Box\Spout\Common\Type::XLSX);
+// Установка стилей для строк
+$styleHead = (new StyleBuilder())->setAlignVertical('top')->setFontSize(11)->setFontBold()->build();
+$styleBody = (new StyleBuilder())->setAlignVertical('top')->setFontSize(11)->build();
+// Установка ширины колонок
+$excel->setAdditionalSettings(['columnsWidth' => [14, 16, 25, 25, 25, 25, 25, 13, 13, 16, 25, 25, 30]]);
+// Установка автофильтра
+$excel->setAutoFilter("A1:M{$i}");
+// Открытие файла для записи
+$excel->openToBrowser('file.xlsx');
+// Добавление заголовков
+$excel->addRowWithStyle(['Столбец 1', 'Столбец 2'], $styleHead);
+// Добавление данных
+$excel->addRowWithStyle(['Данные 1', 'Данные 2'], $styleBody);
+// Установка названия страницы
+$excel->getCurrentSheet()->setName('Sheet1');
+// Вывод
+$excel->close();
+exit();

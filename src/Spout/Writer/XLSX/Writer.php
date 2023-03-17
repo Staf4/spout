@@ -32,6 +32,8 @@ class Writer extends AbstractMultiSheetsWriter
 
     protected $additionalSettings = [];
 
+    protected $autoFilter = null;
+
     /**
      * Sets a custom temporary folder for creating intermediate files/folders.
      * This must be set before opening the writer.
@@ -76,7 +78,7 @@ class Writer extends AbstractMultiSheetsWriter
     {
         if (!$this->book) {
             $tempFolder = ($this->tempFolder) ? : sys_get_temp_dir();
-            $this->book = new Workbook($tempFolder, $this->shouldUseInlineStrings, $this->shouldCreateNewSheetsAutomatically, $this->defaultRowStyle, $this->additionalSettings);
+            $this->book = new Workbook($tempFolder, $this->shouldUseInlineStrings, $this->shouldCreateNewSheetsAutomatically, $this->defaultRowStyle, $this->additionalSettings, $this->autoFilter);
             $this->book->addNewSheetAndMakeItCurrent();
         }
     }
@@ -135,5 +137,10 @@ class Writer extends AbstractMultiSheetsWriter
     public function setAdditionalSettings(array $data)
     {
         $this->additionalSettings = $data;
+    }
+
+    public function setAutoFilter($s)
+    {
+        $this->autoFilter = $s;
     }
 }

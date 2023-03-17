@@ -37,6 +37,8 @@ class Workbook extends AbstractWorkbook
 
     protected $additionalSettings;
 
+    protected $autoFilter;
+
     /**
      * @param string $tempFolder
      * @param bool $shouldUseInlineStrings
@@ -44,12 +46,13 @@ class Workbook extends AbstractWorkbook
      * @param \Box\Spout\Writer\Style\Style $defaultRowStyle
      * @throws \Box\Spout\Common\Exception\IOException If unable to create at least one of the base folders
      */
-    public function __construct($tempFolder, $shouldUseInlineStrings, $shouldCreateNewSheetsAutomatically, $defaultRowStyle, $additionalSettings = [])
+    public function __construct($tempFolder, $shouldUseInlineStrings, $shouldCreateNewSheetsAutomatically, $defaultRowStyle, $additionalSettings = [], $autoFilter = null)
     {
         parent::__construct($shouldCreateNewSheetsAutomatically, $defaultRowStyle);
 
         $this->shouldUseInlineStrings = $shouldUseInlineStrings;
         $this->additionalSettings = $additionalSettings;
+        $this->autoFilter = $autoFilter;
 
         $this->fileSystemHelper = new FileSystemHelper($tempFolder);
         $this->fileSystemHelper->createBaseFilesAndFolders();
@@ -89,7 +92,7 @@ class Workbook extends AbstractWorkbook
         $sheet = new Sheet($newSheetIndex, $this->internalId);
 
         $worksheetFilesFolder = $this->fileSystemHelper->getXlWorksheetsFolder();
-        $worksheet = new Worksheet($sheet, $worksheetFilesFolder, $this->sharedStringsHelper, $this->styleHelper, $this->shouldUseInlineStrings, $this->additionalSettings);
+        $worksheet = new Worksheet($sheet, $worksheetFilesFolder, $this->sharedStringsHelper, $this->styleHelper, $this->shouldUseInlineStrings, $this->additionalSettings, $this->autoFilter);
         $this->worksheets[] = $worksheet;
 
         return $worksheet;

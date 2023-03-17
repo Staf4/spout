@@ -47,6 +47,8 @@ EOD;
 
     protected $additionalSettings;
 
+    protected $autoFilter;
+
     /** @var \Box\Spout\Common\Escaper\XLSX Strings escaper */
     protected $stringsEscaper;
 
@@ -67,13 +69,14 @@ EOD;
      * @param bool $shouldUseInlineStrings Whether inline or shared strings should be used
      * @throws \Box\Spout\Common\Exception\IOException If the sheet data file cannot be opened for writing
      */
-    public function __construct($externalSheet, $worksheetFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [])
+    public function __construct($externalSheet, $worksheetFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [], $autoFilter = null)
     {
         $this->externalSheet = $externalSheet;
         $this->sharedStringsHelper = $sharedStringsHelper;
         $this->styleHelper = $styleHelper;
         $this->shouldUseInlineStrings = $shouldUseInlineStrings;
         $this->additionalSettings = $additionalSettings;
+        $this->autoFilter = $autoFilter;
 
         /** @noinspection PhpUnnecessaryFullyQualifiedNameInspection */
         $this->stringsEscaper = \Box\Spout\Common\Escaper\XLSX::getInstance();
@@ -95,6 +98,8 @@ EOD;
         $this->throwIfSheetFilePointerIsNotAvailable();
 
         fwrite($this->sheetFilePointer, self::SHEET_XML_FILE_HEADER);
+
+        fwrite($this->sheetFilePointer, '<sheetPr '.(!empty($this->autoFilter) ? 'filterMode="1"' : '').'/>');
 
         if(!empty($this->additionalSettings['columnsWidth']) && is_array($this->additionalSettings['columnsWidth'])){
             fwrite($this->sheetFilePointer, '<cols>');
@@ -285,6 +290,7 @@ EOD;
         }
 
         fwrite($this->sheetFilePointer, '</sheetData>');
+        if(!empty($this->autoFilter)){ fwrite($this->sheetFilePointer, '<autoFilter ref="'.$this->autoFilter.'"/>'); }
         fwrite($this->sheetFilePointer, '</worksheet>');
         fclose($this->sheetFilePointer);
     }
