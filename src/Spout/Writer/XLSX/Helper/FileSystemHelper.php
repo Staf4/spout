@@ -47,6 +47,8 @@ class FileSystemHelper extends \Box\Spout\Common\Helper\FileSystemHelper
     /** @var string Path to the "worksheets" folder inside the "xl" folder */
     protected $xlWorksheetsFolder;
 
+    protected $xlWorksheetsRelsFolder;
+
     /**
      * @return string
      */
@@ -69,6 +71,11 @@ class FileSystemHelper extends \Box\Spout\Common\Helper\FileSystemHelper
     public function getXlWorksheetsFolder()
     {
         return $this->xlWorksheetsFolder;
+    }
+
+    public function getXlWorksheetsRelsFolder()
+    {
+        return $this->xlWorksheetsRelsFolder;
     }
 
     /**
@@ -207,6 +214,7 @@ EOD;
         $this->xlFolder = $this->createFolder($this->rootFolder, self::XL_FOLDER_NAME);
         $this->createXlRelsFolder();
         $this->createXlWorksheetsFolder();
+        $this->createXlWorksheetsRelsFolder();
 
         return $this;
     }
@@ -232,6 +240,12 @@ EOD;
     protected function createXlWorksheetsFolder()
     {
         $this->xlWorksheetsFolder = $this->createFolder($this->xlFolder, self::WORKSHEETS_FOLDER_NAME);
+        return $this;
+    }
+
+    protected function createXlWorksheetsRelsFolder()
+    {
+        $this->xlWorksheetsRelsFolder = $this->createFolder($this->xlFolder . '/' . self::WORKSHEETS_FOLDER_NAME, self::RELS_FOLDER_NAME);
         return $this;
     }
 

@@ -66,15 +66,17 @@ limitations under the License.
 
 
 ## Example
+```
 use Box\Spout\Writer\Style\StyleBuilder;
 use Box\Spout\Writer\WriterFactory;
+
 // Инициализация
 $excel = WriterFactory::create(\Box\Spout\Common\Type::XLSX);
 // Установка стилей для строк
 $styleHead = (new StyleBuilder())->setAlignVertical('top')->setFontSize(11)->setFontBold()->build();
 $styleBody = (new StyleBuilder())->setAlignVertical('top')->setFontSize(11)->build();
 // Установка ширины колонок
-$excel->setAdditionalSettings(['columnsWidth' => [14, 16, 25, 25, 25, 25, 25, 13, 13, 16, 25, 25, 30]]);
+$excel->setAdditionalSettings(['rowsHeight' => 29, 'columnsWidth' => [14, 16, 25, 25, 25, 25, 25, 13, 13, 16, 25, 25, 30]]);
 // Установка автофильтра
 $excel->setAutoFilter("A1:M{$i}");
 // Открытие файла для записи
@@ -88,3 +90,4 @@ $excel->getCurrentSheet()->setName('Sheet1');
 // Вывод
 $excel->close();
 exit();
+```

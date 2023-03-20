@@ -30,11 +30,22 @@ class Worksheet implements WorksheetInterface
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 EOD;
 
+    const SHEET_RELS_XML_FILE_HEADER = <<<EOD
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+EOD;
+
+    const SHEET_RELS_XML_FILE_FOOTER = <<<EOD
+</Relationships>
+EOD;
+
     /** @var \Box\Spout\Writer\Common\Sheet The "external" sheet */
     protected $externalSheet;
 
     /** @var string Path to the XML file that will contain the sheet data */
     protected $worksheetFilePath;
+
+    protected $worksheetRelsFilePath;
 
     /** @var \Box\Spout\Writer\XLSX\Helper\SharedStringsHelper Helper to write shared strings */
     protected $sharedStringsHelper;
@@ -49,6 +60,8 @@ EOD;
 
     protected $autoFilter;
 
+    protected $hyperlinks = [];
+
     /** @var \Box\Spout\Common\Escaper\XLSX Strings escaper */
     protected $stringsEscaper;
 
@@ -57,6 +70,8 @@ EOD;
 
     /** @var Resource Pointer to the sheet data file (e.g. xl/worksheets/sheet1.xml) */
     protected $sheetFilePointer;
+
+    protected $sheetRelsFilePointer;
 
     /** @var int Index of the last written row */
     protected $lastWrittenRowIndex = 0;
@@ -69,7 +84,7 @@ EOD;
      * @param bool $shouldUseInlineStrings Whether inline or shared strings should be used
      * @throws \Box\Spout\Common\Exception\IOException If the sheet data file cannot be opened for writing
      */
-    public function __construct($externalSheet, $worksheetFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [], $autoFilter = null)
+    public function __construct($externalSheet, $worksheetFilesFolder, $worksheetRelsFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [], $autoFilter = null)
     {
         $this->externalSheet = $externalSheet;
         $this->sharedStringsHelper = $sharedStringsHelper;
@@ -83,6 +98,7 @@ EOD;
         $this->stringHelper = new StringHelper();
 
         $this->worksheetFilePath = $worksheetFilesFolder . '/' . strtolower($this->externalSheet->getName()) . '.xml';
+        $this->worksheetRelsFilePath = $worksheetRelsFilesFolder . '/' . strtolower($this->externalSheet->getName()) . '.xml.rels';
         $this->startSheet();
     }
 
@@ -95,9 +111,13 @@ EOD;
     protected function startSheet()
     {
         $this->sheetFilePointer = fopen($this->worksheetFilePath, 'w');
+        $this->sheetRelsFilePointer = fopen($this->worksheetRelsFilePath, 'w');
         $this->throwIfSheetFilePointerIsNotAvailable();
+        $this->throwIfSheetRelsFilePointerIsNotAvailable();
 
         fwrite($this->sheetFilePointer, self::SHEET_XML_FILE_HEADER);
+
+        fwrite($this->sheetRelsFilePointer, self::SHEET_RELS_XML_FILE_HEADER);
 
         fwrite($this->sheetFilePointer, '<sheetPr '.(!empty($this->autoFilter) ? 'filterMode="1"' : '').'/>');
 
@@ -124,6 +144,13 @@ EOD;
     {
         if (!$this->sheetFilePointer) {
             throw new IOException('Unable to open sheet for writing.');
+        }
+    }
+
+    protected function throwIfSheetRelsFilePointerIsNotAvailable()
+    {
+        if (!$this->sheetRelsFilePointer) {
+            throw new IOException('Unable to open sheet rels for writing.');
         }
     }
 
@@ -202,11 +229,19 @@ EOD;
         $numCells = count($dataRow);
 
         $rowXML = '<row r="' . $rowIndex . '" spans="1:' . $numCells . '" '
-            .((!empty($this->additionalSettings['rowsHeight'][$this->lastWrittenRowIndex])) ? ' customHeight="1" ht="'.$this->additionalSettings['rowsHeight'][$this->lastWrittenRowIndex].'"' : '')
+            .((!empty($this->additionalSettings['rowsHeight'])) ? ' customHeight="1" ht="'.$this->additionalSettings['rowsHeight'].'"' : '')
             .'>';
 
         foreach($dataRow as $cellValue) {
-            $rowXML .= $this->getCellXML($rowIndex, $cellNumber, $cellValue, $style->getId());
+            $customValue = null;
+            if(is_array($cellValue) && !empty($cellValue['type'])){
+                if($cellValue['type'] == 'link') {
+                    $customValue = $cellValue['url'];
+                    $columnIndex = CellHelper::getCellIndexFromColumnIndex($cellNumber);
+                    $this->hyperlinks[] = ['cell' => $columnIndex.$rowIndex, 'url' => $cellValue['url'], 'tooltip' => $cellValue['tooltip']];
+                }
+            }
+            $rowXML .= $this->getCellXML($rowIndex, $cellNumber, (!empty($customValue) ? $customValue : $cellValue), $style->getId());
             $cellNumber++;
         }
 
@@ -285,13 +320,27 @@ EOD;
      */
     public function close()
     {
-        if (!is_resource($this->sheetFilePointer)) {
-            return;
-        }
+        if (!is_resource($this->sheetFilePointer)) { return; }
+        if (!is_resource($this->sheetRelsFilePointer)) { return; }
 
         fwrite($this->sheetFilePointer, '</sheetData>');
         if(!empty($this->autoFilter)){ fwrite($this->sheetFilePointer, '<autoFilter ref="'.$this->autoFilter.'"/>'); }
+
+        if(!empty($this->hyperlinks)){
+            fwrite($this->sheetFilePointer, '<hyperlinks>');
+            $hyperlinkI = 1;
+            foreach($this->hyperlinks as $hyperlink){
+                fwrite($this->sheetFilePointer, '<hyperlink ref="'.$hyperlink['cell'].'" r:id="rId_hyperlink_'.$hyperlinkI.'" '.(!empty($hyperlink['tooltip']) ? 'tooltip="'.$hyperlink['tooltip'].'"' : '').'/>');
+                fwrite($this->sheetRelsFilePointer, '<Relationship Id="rId_hyperlink_'.$hyperlinkI.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="'.$hyperlink['url'].'" TargetMode="External"/>');
+                $hyperlinkI++;
+            }
+            fwrite($this->sheetFilePointer, '</hyperlinks>');
+        }
+
         fwrite($this->sheetFilePointer, '</worksheet>');
         fclose($this->sheetFilePointer);
+
+        fwrite($this->sheetRelsFilePointer, self::SHEET_RELS_XML_FILE_FOOTER);
+        fclose($this->sheetRelsFilePointer);
     }
 }

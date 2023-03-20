@@ -92,7 +92,8 @@ class Workbook extends AbstractWorkbook
         $sheet = new Sheet($newSheetIndex, $this->internalId);
 
         $worksheetFilesFolder = $this->fileSystemHelper->getXlWorksheetsFolder();
-        $worksheet = new Worksheet($sheet, $worksheetFilesFolder, $this->sharedStringsHelper, $this->styleHelper, $this->shouldUseInlineStrings, $this->additionalSettings, $this->autoFilter);
+        $worksheetRelsFilesFolder = $this->fileSystemHelper->getXlWorksheetsRelsFolder();
+        $worksheet = new Worksheet($sheet, $worksheetFilesFolder, $worksheetRelsFilesFolder, $this->sharedStringsHelper, $this->styleHelper, $this->shouldUseInlineStrings, $this->additionalSettings, $this->autoFilter);
         $this->worksheets[] = $worksheet;
 
         return $worksheet;
