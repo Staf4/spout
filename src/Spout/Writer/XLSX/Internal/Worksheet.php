@@ -58,8 +58,6 @@ EOD;
 
     protected $additionalSettings;
 
-    protected $autoFilter;
-
     protected $hyperlinks = [];
 
     /** @var \Box\Spout\Common\Escaper\XLSX Strings escaper */
@@ -84,14 +82,13 @@ EOD;
      * @param bool $shouldUseInlineStrings Whether inline or shared strings should be used
      * @throws \Box\Spout\Common\Exception\IOException If the sheet data file cannot be opened for writing
      */
-    public function __construct($externalSheet, $worksheetFilesFolder, $worksheetRelsFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [], $autoFilter = null)
+    public function __construct($externalSheet, $worksheetFilesFolder, $worksheetRelsFilesFolder, $sharedStringsHelper, $styleHelper, $shouldUseInlineStrings, $additionalSettings = [])
     {
         $this->externalSheet = $externalSheet;
         $this->sharedStringsHelper = $sharedStringsHelper;
         $this->styleHelper = $styleHelper;
         $this->shouldUseInlineStrings = $shouldUseInlineStrings;
         $this->additionalSettings = $additionalSettings;
-        $this->autoFilter = $autoFilter;
 
         /** @noinspection PhpUnnecessaryFullyQualifiedNameInspection */
         $this->stringsEscaper = \Box\Spout\Common\Escaper\XLSX::getInstance();
@@ -119,7 +116,7 @@ EOD;
 
         fwrite($this->sheetRelsFilePointer, self::SHEET_RELS_XML_FILE_HEADER);
 
-        fwrite($this->sheetFilePointer, '<sheetPr '.(!empty($this->autoFilter) ? 'filterMode="1"' : '').'/>');
+        fwrite($this->sheetFilePointer, '<sheetPr filterMode="1"/>');
 
         if(!empty($this->additionalSettings['columnsWidth']) && is_array($this->additionalSettings['columnsWidth'])){
             fwrite($this->sheetFilePointer, '<cols>');
@@ -324,7 +321,7 @@ EOD;
         if (!is_resource($this->sheetRelsFilePointer)) { return; }
 
         fwrite($this->sheetFilePointer, '</sheetData>');
-        if(!empty($this->autoFilter)){ fwrite($this->sheetFilePointer, '<autoFilter ref="'.$this->autoFilter.'"/>'); }
+        if(!empty($this->externalSheet->getAutoFilter())){ fwrite($this->sheetFilePointer, '<autoFilter ref="'.$this->externalSheet->getAutoFilter().'"/>'); }
 
         if(!empty($this->hyperlinks)){
             fwrite($this->sheetFilePointer, '<hyperlinks>');

@@ -36,6 +36,8 @@ class Sheet
     /** @var \Box\Spout\Common\Helper\StringHelper */
     protected $stringHelper;
 
+    protected $autoFilter;
+
     /**
      * @param int $sheetIndex Index of the sheet, based on order in the workbook (zero-based)
      * @param string $associatedWorkbookId ID of the sheet's associated workbook
@@ -180,4 +182,16 @@ class Sheet
 
         return true;
     }
+
+    public function setAutoFilter($s)
+    {
+        $this->autoFilter = $s;
+        return $this;
+    }
+
+    public function getAutoFilter()
+    {
+        return $this->autoFilter;
+    }
+
 }
