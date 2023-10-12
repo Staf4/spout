@@ -78,9 +78,9 @@ $styleBody = (new StyleBuilder())->setAlignVertical('top')->setFontSize(11)->bui
 // Установка ширины колонок
 $excel->setAdditionalSettings(['rowsHeight' => 29, 'columnsWidth' => [14, 16, 25, 25, 25, 25, 25, 13, 13, 16, 25, 25, 30]]);
 // Установка автофильтра
-$excel->setAutoFilter("A1:M{$i}");
+$excel->getCurrentSheet()->setAutoFilter("A1:M{$i}");
 // Открытие файла для записи
-$excel->openToBrowser('file.xlsx');
+$excel->openToBrowser('file.xlsx', false);
 // Добавление заголовков
 $excel->addRowWithStyle(['Столбец 1', 'Столбец 2'], $styleHead);
 // Добавление данных

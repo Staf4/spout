@@ -27,7 +27,7 @@ interface WriterInterface
      * @return WriterInterface
      * @throws \Box\Spout\Common\Exception\IOException If the writer cannot be opened
      */
-    public function openToBrowser($outputFileName);
+    public function openToBrowser($outputFileName, $setHeaders = true);
 
     /**
      * Write given data to the output. New data will be appended to end of stream.

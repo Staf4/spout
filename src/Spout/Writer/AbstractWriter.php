@@ -131,7 +131,7 @@ abstract class AbstractWriter implements WriterInterface
      * @return AbstractWriter
      * @throws \Box\Spout\Common\Exception\IOException If the writer cannot be opened
      */
-    public function openToBrowser($outputFileName)
+    public function openToBrowser($outputFileName, $setHeaders = true)
     {
         $this->outputFilePath = $this->globalFunctionsHelper->basename($outputFileName);
 
@@ -143,8 +143,10 @@ abstract class AbstractWriter implements WriterInterface
         $this->globalFunctionsHelper->ob_end_clean();
 
         // Set headers
-        $this->globalFunctionsHelper->header('Content-Type: ' . static::$headerContentType);
-        $this->globalFunctionsHelper->header('Content-Disposition: attachment; filename="' . $this->outputFilePath . '"');
+        if ($setHeaders) {
+            $this->globalFunctionsHelper->header('Content-Type: ' . static::$headerContentType);
+            $this->globalFunctionsHelper->header('Content-Disposition: attachment; filename="' . $this->outputFilePath . '"');
+        }
 
         /*
          * When forcing the download of a file over SSL,IE8 and lower browsers fail
@@ -153,8 +155,10 @@ abstract class AbstractWriter implements WriterInterface
          * @see http://support.microsoft.com/KB/323308
          * @see https://github.com/liuggio/ExcelBundle/issues/45
          */
-        $this->globalFunctionsHelper->header('Cache-Control: max-age=0');
-        $this->globalFunctionsHelper->header('Pragma: public');
+        if ($setHeaders) {
+            $this->globalFunctionsHelper->header('Cache-Control: max-age=0');
+            $this->globalFunctionsHelper->header('Pragma: public');
+        }
 
         $this->openWriter();
         $this->isWriterOpened = true;
