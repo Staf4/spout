@@ -32,6 +32,8 @@ class Writer extends AbstractWriter
     /** @var bool */
     protected $shouldAddBOM = true;
 
+    protected $additionalSettings = [];
+
     /**
      * Sets the field delimiter for the CSV
      *
@@ -115,4 +117,10 @@ class Writer extends AbstractWriter
     {
         $this->lastWrittenRowIndex = 0;
     }
+
+    public function setAdditionalSettings(array $data)
+    {
+        $this->additionalSettings = $data;
+    }
+
 }

@@ -65,7 +65,7 @@ limitations under the License.
 
 
 
-## Example
+## Example XLSX
 ```
 use Box\Spout\Writer\Style\StyleBuilder;
 use Box\Spout\Writer\WriterFactory;
@@ -80,13 +80,33 @@ $excel->setAdditionalSettings(['rowsHeight' => 29, 'columnsWidth' => [14, 16, 25
 // Установка автофильтра
 $excel->getCurrentSheet()->setAutoFilter("A1:M{$i}");
 // Открытие файла для записи
-$excel->openToBrowser('file.xlsx', false);
+$excel->openToBrowser('file.xlsx', true); // если не нужно доравбять заголовки - false
 // Добавление заголовков
 $excel->addRowWithStyle(['Столбец 1', 'Столбец 2'], $styleHead);
 // Добавление данных
 $excel->addRowWithStyle(['Данные 1', 'Данные 2'], $styleBody);
 // Установка названия страницы
 $excel->getCurrentSheet()->setName('Sheet1');
+// Вывод
+$excel->close();
+exit();
+```
+
+## Example CSV
+```
+use Box\Spout\Writer\Style\StyleBuilder;
+use Box\Spout\Writer\WriterFactory;
+
+// Инициализация
+$excel = WriterFactory::create(\Box\Spout\Common\Type::CSV);
+// Установка разделителя
+$excel->setFieldDelimiter(';');
+// Открытие файла для записи
+$excel->openToBrowser('file.csv', true); // если не нужно доравбять заголовки - false
+// Добавление заголовков
+$excel->addRowWithStyle(['Столбец 1', 'Столбец 2'], null);
+// Добавление данных
+$excel->addRowWithStyle(['Данные 1', 'Данные 2'], null);
 // Вывод
 $excel->close();
 exit();
